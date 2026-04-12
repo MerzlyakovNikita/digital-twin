@@ -1,40 +1,68 @@
-import { trainNodes } from '../model/trainModel';
-import { InputNode } from '../components/InputNode';
-import { GraphView } from '../components/GraphView';
-import { useEffect } from 'react';
-import { useStore } from '../store/useStore';
-import { MermaidDiagram } from '../components/MermaidDiagram';
-import { buildMermaid } from '../engine/buildMermaid';
+import Canvas from "../components/Canvas/Canvas";
+import Toolbar from "../components/Toolbar/Toolbar";
+import VariablesPanel from "../components/Sidebar/VariablesPanel";
+import ResultPanel from "../components/Sidebar/ResultPanel";
+import { useGraph } from "../hooks/useGraph";
 
 export default function App() {
-  const recalc = useStore((s) => s.recalc);
-  const chart = buildMermaid();
-  
-  useEffect(() => {
-    recalc();
-  }, []);
+  const {
+    nodes,
+    edges,
+    addVariable,
+    addOperation,
+    addFunction,
+    updatePosition,
+    startConnection,
+    finishConnection,
+    removeEdge,
+    connecting,
+    mousePos,
+    updateMousePosition,
+    cancelConnection,
+    updateNodeOperation,
+    removeNode,
+    updateNodeFunction,
+    variableValues,
+    setVariableValue,
+  } = useGraph();
 
   return (
-    <div style={{ display: 'flex', gap: 10 }}>
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 17,
-          marginTop: 17,
-          width: 230,
-        }}
-      >
-        {trainNodes
-          .filter((n) => n.type === 'input')
-          .map((n) => (
-            <InputNode key={n.id} id={n.id} label={n.label} />
-          ))}
+    <div className="app">
+      <VariablesPanel
+        nodes={nodes}
+        values={variableValues}
+        onChange={setVariableValue}
+      />
+
+      <div className="workspace">
+        <Toolbar
+          onAddVariable={addVariable}
+          onAddOperation={addOperation}
+          onAddFunction={addFunction}
+        />
+
+        <Canvas
+          nodes={nodes}
+          edges={edges}
+          updatePosition={updatePosition}
+          startConnection={startConnection}
+          finishConnection={finishConnection}
+          removeEdge={removeEdge}
+          connecting={connecting}
+          mousePos={mousePos}
+          updateMousePosition={updateMousePosition}
+          cancelConnection={cancelConnection}
+          updateNodeOperation={updateNodeOperation}
+          removeNode={removeNode}
+          updateNodeFunction={updateNodeFunction}
+        />
       </div>
-      <div style={{ width: '100%'}}>
-        <MermaidDiagram chart={chart} />
-      </div>
-      <GraphView />
+
+      <ResultPanel
+        nodes={nodes}
+        edges={edges}
+        values={variableValues}
+      />
     </div>
   );
 }
