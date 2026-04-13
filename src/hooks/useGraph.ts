@@ -172,6 +172,16 @@ export function useGraph() {
       );
     };
 
+    const updateNodeParam = (id: string, param: string) => {
+      setNodes((prev) =>
+        prev.map((n) =>
+          n.id === id && n.type === "function"
+            ? { ...n, param }
+            : n
+        )
+      );
+    };
+
     return {
       nodes,
       edges,
@@ -190,6 +200,7 @@ export function useGraph() {
       variableValues,
       setVariableValue,
       addFunction,
-      updateNodeFunction
+      updateNodeFunction,
+      updateNodeParam
     };
 }

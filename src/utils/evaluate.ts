@@ -11,6 +11,7 @@ export function evaluate(
 
   function dfs(id: string): number {
     const node = nodeMap[id];
+    if (!node) return 0;
 
     if (node.type === "variable") {
       return values[id] ?? 0;
@@ -22,14 +23,17 @@ export function evaluate(
 
       const v = dfs(input.from);
 
+      const param = Number(node.param ?? 2);
+
       switch (node.func) {
         case "sin": return Math.sin(v);
         case "cos": return Math.cos(v);
         case "tan": return Math.tan(v);
         case "log": return Math.log(v);
         case "exp": return Math.exp(v);
-        case "sqrt": return Math.sqrt(v);
         case "abs": return Math.abs(v);
+        case "pow": return Math.pow(v, param);
+        case "root": return Math.pow(v, 1 / param);
         default: return 0;
       }
     }

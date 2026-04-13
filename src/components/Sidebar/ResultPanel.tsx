@@ -1,12 +1,9 @@
 import { useState, useMemo, useEffect } from "react";
 import type { Node } from "../../types/node";
 import type { Edge } from "../../types/edge";
-import {
-  buildFormulas,
-  buildExpandedFormula,
-} from "../../utils/formula";
 import { evaluate } from "../../utils/evaluate";
 import Graph from "../Graph/Graph";
+import { evaluateWithTrace } from "../../utils/evaluateTrace";
 
 interface Props {
   nodes: Node[];
@@ -45,13 +42,6 @@ export default function ResultPanel({
   const xNode = nodes.find((n) => n.id === xNodeId);
   const yNode = nodes.find((n) => n.id === yNodeId);
 
-  const formulas = buildFormulas(nodes, edges);
-
-  const expanded =
-    yNodeId != null
-      ? buildExpandedFormula(yNodeId, nodes, edges)
-      : "";
-
   const data = useMemo(() => {
     if (!xNodeId || !yNodeId) return [];
 
@@ -81,14 +71,11 @@ export default function ResultPanel({
       <h3>Результат</h3>
 
       <div style={{ marginBottom: 10 }}>
-        <label style={{ fontSize: 12, color: "#9ca3af" }}>
-          Ось X
-        </label>
+        <label className="section-title">Ось X</label>
 
         <select
           value={xNodeId ?? ""}
           onChange={(e) => setXNodeId(e.target.value)}
-          style={selectStyle}
         >
           {variableNodes.map((n) => (
             <option key={n.id} value={n.id}>
@@ -99,14 +86,11 @@ export default function ResultPanel({
       </div>
 
       <div style={{ marginBottom: 12 }}>
-        <label style={{ fontSize: 12, color: "#9ca3af" }}>
-          Ось Y
-        </label>
+        <label className="section-title">Ось Y</label>
 
         <select
           value={yNodeId ?? ""}
           onChange={(e) => setYNodeId(e.target.value)}
-          style={selectStyle}
         >
           {yNodes.map((n) => (
             <option key={n.id} value={n.id}>
@@ -115,17 +99,44 @@ export default function ResultPanel({
           ))}
         </select>
       </div>
-
+      
+      <h4 className="section-title">Пошаговые вычисления</h4>
       <div className="formula">
-        {Array.from(new Set(formulas)).map((f, i) => (
-          <div key={i}>{f}</div>
-        ))}
+        {yNodes.map((node) => {
+          const trace = evaluateWithTrace(
+            node.id,
+            nodes,
+            edges,
+            values
+          );
+
+          return (
+            <div key={node.id}>
+              {node.name} = {trace.expr} = {trace.substituted} = {trace.result}
+            </div>
+          );
+        })}
       </div>
 
+      <h4 className="section-title">Итоговая функция</h4>
       <div className="formula" style={{ marginTop: 10 }}>
-        {expanded}
+        {yNodeId && (() => {
+          const trace = evaluateWithTrace(
+            yNodeId,
+            nodes,
+            edges,
+            values
+          );
+
+          return (
+            <div>
+              {yNode?.name} = {trace.expr} = {trace.substituted} = {trace.result}
+            </div>
+          );
+        })()}
       </div>
 
+      <h4 className="section-title">График зависимости</h4>
       <div className="graph">
         {data.length > 0 && xNode && yNode && (
           <Graph
@@ -138,13 +149,3 @@ export default function ResultPanel({
     </div>
   );
 }
-
-const selectStyle: React.CSSProperties = {
-  width: "100%",
-  marginTop: 4,
-  padding: 6,
-  borderRadius: 6,
-  background: "#1f2937",
-  color: "white",
-  border: "1px solid #374151",
-};

@@ -26,13 +26,15 @@ export type FunctionType =
   | "tan"
   | "log"
   | "exp"
-  | "sqrt"
-  | "abs";
+  | "abs"
+  | "pow"
+  | "root";
 
 export interface FunctionNode extends BaseNode {
   type: "function";
   name: string;
   func: FunctionType;
+  param?: string;
 }
 
 export type Node = VariableNode | OperationNode | FunctionNode;

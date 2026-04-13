@@ -16,15 +16,23 @@ interface Props {
   updateNodeOperation?: (id: string, op: OperationType) => void;
   removeNode: (id: string) => void;
   updateNodeFunction?: (id: string, func: FunctionType) => void;
+  updateNodeParam?: (id: string, param: string) => void;
 }
 
-const NODE_WIDTH = 167;
+function getPortPosition(id: string) {
+  const el = document.getElementById(id);
+  if (!el) return null;
 
-const PORT_OFFSET_Y = {
-  variable: 41,
-  operation: [25, 57],
-  function: 41,
-};
+  const rect = el.getBoundingClientRect();
+  const canvasRect = document
+    .querySelector(".canvas")!
+    .getBoundingClientRect();
+
+  return {
+    x: rect.left - canvasRect.left + rect.width / 2,
+    y: rect.top - canvasRect.top + rect.height / 2,
+  };
+}
 
 export default function Canvas({
   nodes,
@@ -39,7 +47,8 @@ export default function Canvas({
   cancelConnection,
   updateNodeOperation,
   removeNode,
-  updateNodeFunction
+  updateNodeFunction,
+  updateNodeParam
 }: Props) {
   return (
     <div
@@ -67,22 +76,18 @@ export default function Canvas({
         {edges.map((edge) => {
           const from = nodes.find((n) => n.id === edge.from);
           const to = nodes.find((n) => n.id === edge.to);
+
           if (!from || !to) return null;
 
-          const x1 = from.x + NODE_WIDTH;
-          const y1 = from.y + PORT_OFFSET_Y.variable;
+          const p1 = getPortPosition(`port-out-${from.id}`);
+          const p2 = getPortPosition(`port-in-${to.id}-${edge.inputIndex ?? 0}`);
 
-          let y2 = to.y + PORT_OFFSET_Y.variable;
+          if (!p1 || !p2) return null;
 
-          if (to.type === "operation" && edge.inputIndex !== undefined) {
-            y2 = to.y + PORT_OFFSET_Y.operation[edge.inputIndex];
-          }
-
-          if (to.type === "function") {
-            y2 = to.y + PORT_OFFSET_Y.function;
-          }
-
-          const x2 = to.x - 1;
+          const x1 = p1.x;
+          const y1 = p1.y;
+          const x2 = p2.x;
+          const y2 = p2.y;
 
           return (
             <g key={edge.id}>
@@ -105,10 +110,13 @@ export default function Canvas({
           const from = nodes.find(n => n.id === connecting.fromNodeId);
           if (!from) return null;
 
+          const p1 = getPortPosition(`port-out-${from.id}`);
+          if (!p1) return null;
+
           return (
             <line
-              x1={from.x + NODE_WIDTH}
-              y1={from.y + PORT_OFFSET_Y.variable}
+              x1={p1.x}
+              y1={p1.y}
               x2={mousePos.x}
               y2={mousePos.y}
               stroke="gray"
@@ -130,6 +138,7 @@ export default function Canvas({
           updateNodeOperation={updateNodeOperation}
           removeNode={removeNode}
           updateNodeFunction={updateNodeFunction}
+          updateNodeParam={updateNodeParam}
         />
       ))}
     </div>

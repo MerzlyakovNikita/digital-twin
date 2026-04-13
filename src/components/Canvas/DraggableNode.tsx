@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import type { Node, OperationType, FunctionType } from "../../types/node";
 
 interface Props {
@@ -10,6 +10,7 @@ interface Props {
   updateNodeOperation?: (id: string, op: OperationType) => void;
   removeNode: (id: string) => void;
   updateNodeFunction?: (id: string, func: FunctionType) => void;
+  updateNodeParam?: (id: string, param: string) => void;
 }
 
 export default function DraggableNode({
@@ -20,11 +21,14 @@ export default function DraggableNode({
   connecting,
   updateNodeOperation,
   removeNode,
-  updateNodeFunction
+  updateNodeFunction,
+  updateNodeParam
 }: Props) {
   const [dragging, setDragging] = useState(false);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [hovered, setHovered] = useState(false);
+  const nodeRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<number | null>(null);
 
   const isConnectingFromThis = connecting?.fromNodeId === node.id;
 
@@ -32,24 +36,37 @@ export default function DraggableNode({
     const handleMouseMove = (e: MouseEvent) => {
       if (!dragging) return;
 
-      const canvas = document.querySelector(".canvas") as HTMLElement;
-      if (!canvas) return;
+      if (frameRef.current) return;
 
-      const rect = canvas.getBoundingClientRect();
+      frameRef.current = requestAnimationFrame(() => {
+        const canvas = document.querySelector(".canvas") as HTMLElement;
+        if (!canvas) return;
 
-      let x = e.clientX - rect.left - offset.x;
-      let y = e.clientY - rect.top - offset.y;
+        const rect = canvas.getBoundingClientRect();
 
-      const NODE_WIDTH = 120;
-      const NODE_HEIGHT = 60;
+        let x = e.clientX - rect.left - offset.x;
+        let y = e.clientY - rect.top - offset.y;
 
-      x = Math.max(0, Math.min(x, rect.width - NODE_WIDTH));
-      y = Math.max(0, Math.min(y, rect.height - NODE_HEIGHT));
+        const NODE_WIDTH = 140;
+        const NODE_HEIGHT = 80;
 
-      updatePosition(node.id, x, y);
+        x = Math.max(0, Math.min(x, rect.width - NODE_WIDTH));
+        y = Math.max(0, Math.min(y, rect.height - NODE_HEIGHT));
+
+        updatePosition(node.id, x, y);
+
+        frameRef.current = null;
+      });
     };
 
-    const handleMouseUp = () => setDragging(false);
+    const handleMouseUp = () => {
+      setDragging(false);
+
+      if (frameRef.current) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
+    };
 
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
@@ -57,6 +74,11 @@ export default function DraggableNode({
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
+
+      if (frameRef.current) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
     };
   }, [dragging, offset, node.id, updatePosition]);
 
@@ -68,11 +90,17 @@ export default function DraggableNode({
       y: e.clientY - rect.top,
     });
 
+    if (frameRef.current) {
+      cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+    }
+
     setDragging(true);
   };
 
   return (
     <div
+      ref={nodeRef}
       className="node"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -85,8 +113,8 @@ export default function DraggableNode({
     {hovered && (
     <div
         onClick={(e) => {
-        e.stopPropagation();
-        removeNode(node.id);
+          e.stopPropagation();
+          removeNode(node.id);
         }}
         style={{
         position: "absolute",
@@ -109,6 +137,7 @@ export default function DraggableNode({
     {node.type === "operation" && (
         <>
           <div
+            id={`port-in-${node.id}-0`}
             onMouseUp={() => finishConnection(node.id, 0)}
             style={{
               position: "absolute",
@@ -123,6 +152,7 @@ export default function DraggableNode({
             }}
           />
           <div
+            id={`port-in-${node.id}-1`}
             onMouseUp={() => finishConnection(node.id, 1)}
             style={{
               position: "absolute",
@@ -141,6 +171,7 @@ export default function DraggableNode({
 
     {node.type === "function" && (
     <div
+        id={`port-in-${node.id}-0`}
         onMouseUp={() => finishConnection(node.id, 0)}
         style={{
         position: "absolute",
@@ -165,34 +196,37 @@ export default function DraggableNode({
         background: "#ffffff",
         border: "1px solid #e5e7eb",
         borderRadius: 10,
-        textAlign: "center",
         cursor: "grab",
         userSelect: "none",
         boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-        display: "flex",              // ← ДОБАВЬ
-        flexDirection: "column",
-        justifyContent: "center",     // ← ВАЖНО
+
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         }}
     >
-
-    {node.type === "variable" && (
+      {node.type === "variable" && (
         <div
-        style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            height: "100%",
-            fontWeight: 500,
+          style={{
             fontSize: 16,
-        }}
-        >
-            {node.name}
+            textAlign: "center",
+            wordBreak: "break-word",
+            overflowWrap: "anywhere"
+          }}>
+          {node.name}
         </div>
-    )}
+      )}
 
         {node.type === "operation" && (
           <div style={{ width: "100%" }}>
-            <div style={{ fontSize: 16, marginBottom: 4 }}>
+            <div
+              style={{
+                fontSize: 16,
+                textAlign: "center",
+                wordBreak: "break-word",
+                overflowWrap: "anywhere",
+                marginBottom: 4
+              }}>
             {node.name}
             </div>
 
@@ -205,17 +239,7 @@ export default function DraggableNode({
                         e.target.value as OperationType
                     )
                 }
-                style={{
-                    marginTop: 6,
-                    width: "100%",
-                    padding: "4px 6px",
-                    borderRadius: 6,
-                    border: "1px solid #d1d5db",
-                    background: "#ffffff",
-                    color: "#111827",
-                    fontSize: 13,
-                    outline: "none",
-                }}
+                style = {controlStyle}
             >
                 <option value="+">+</option>
                 <option value="-">-</option>
@@ -226,38 +250,60 @@ export default function DraggableNode({
         )}
         {node.type === "function" && (
         <div style={{ width: "100%" }}>
-            <div style={{ fontSize: 16, marginBottom: 4 }}>
+            <div
+              style={{
+                fontSize: 16,
+                textAlign: "center",
+                wordBreak: "break-word",
+                overflowWrap: "anywhere",
+                marginBottom: 4
+              }}>
             {node.name}
             </div>
 
+            {(node.func === "pow" || node.func === "root") && (
+              <input
+                type="text"
+                value={node.param ?? ""}
+                placeholder="n"
+                onMouseDown={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  const val = e.target.value;
+
+                  if (/^[0-9]*\.?[0-9]*$/.test(val)) {
+                    updateNodeParam?.(node.id, val);
+                  }
+                }}
+                style={controlStyle}
+              />
+            )}
+
             <select
-            value={node.func}
-            onMouseDown={(e) => e.stopPropagation()}
-            onChange={(e) =>
-                updateNodeFunction?.(
-                node.id,
-                e.target.value as FunctionType
-                )
-            }
-            style={{
-                width: "100%",
-                padding: "4px 6px",
-                borderRadius: 6,
-            }}
+              value={node.func}
+              onMouseDown={(e) => e.stopPropagation()}
+              onChange={(e) =>
+                  updateNodeFunction?.(
+                  node.id,
+                  e.target.value as FunctionType
+                  )
+              }
+              style={controlStyle}
             >
             <option value="sin">sin</option>
             <option value="cos">cos</option>
             <option value="tan">tan</option>
             <option value="log">log</option>
             <option value="exp">exp</option>
-            <option value="sqrt">sqrt</option>
             <option value="abs">abs</option>
+            <option value="pow">pow (xⁿ)</option>
+            <option value="root">root (ⁿ√x)</option>
             </select>
         </div>
         )}
     </div>
 
     <div
+        id={`port-out-${node.id}`}
         onMouseDown={(e) => {
           e.stopPropagation();
           startConnection(node.id);
@@ -278,3 +324,12 @@ export default function DraggableNode({
     </div>
   );
 }
+
+const controlStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "4px 6px",
+  borderRadius: 6,
+  border: "1px solid #d1d5db",
+  fontSize: 13,
+  boxSizing: "border-box",
+};

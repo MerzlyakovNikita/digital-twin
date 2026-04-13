@@ -22,6 +22,7 @@ export default function App() {
     updateNodeOperation,
     removeNode,
     updateNodeFunction,
+    updateNodeParam,
     variableValues,
     setVariableValue,
   } = useGraph();
@@ -55,6 +56,7 @@ export default function App() {
           updateNodeOperation={updateNodeOperation}
           removeNode={removeNode}
           updateNodeFunction={updateNodeFunction}
+          updateNodeParam={updateNodeParam}
         />
       </div>
 

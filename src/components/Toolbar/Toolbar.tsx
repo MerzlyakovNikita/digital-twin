@@ -24,8 +24,9 @@ export default function Toolbar({
       />
       <button
         onClick={() => {
-          if (!varName) return;
-          onAddVariable(varName);
+          const trimmed = varName.trim();
+          if (!trimmed) return;
+          onAddVariable(trimmed);
           setVarName("");
         }}
       >
@@ -36,12 +37,12 @@ export default function Toolbar({
         value={opName}
         onChange={(e) => setOpName(e.target.value)}
         placeholder="Имя операции"
-        style={{ marginLeft: 10 }}
       />
       <button
         onClick={() => {
-          if (!opName) return;
-          onAddOperation(opName);
+          const trimmed = opName.trim();
+          if (!trimmed) return;
+          onAddOperation(trimmed);
           setOpName("");
         }}
       >
@@ -56,8 +57,9 @@ export default function Toolbar({
 
       <button
         onClick={() => {
-          if (!funcName) return;
-          onAddFunction(funcName);
+          const trimmed = funcName.trim();
+          if (!trimmed) return;
+          onAddFunction(trimmed);
           setFuncName("");
         }}
       >
