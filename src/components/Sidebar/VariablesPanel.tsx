@@ -7,11 +7,7 @@ interface Props {
   onChange: (id: string, value: number) => void;
 }
 
-export default function VariablesPanel({
-  nodes,
-  values,
-  onChange,
-}: Props) {
+export default function VariablesPanel({ nodes, values, onChange }: Props) {
   const variables = nodes.filter((n) => n.type === "variable");
 
   const [localValues, setLocalValues] = useState<Record<string, string>>({});
@@ -36,14 +32,21 @@ export default function VariablesPanel({
   }, [values]);
 
   const handleChange = (id: string, val: string) => {
-    if (!/^-?\d*\.?\d*$/.test(val)) return;
+    if (!/^-?[\d.,]*$/.test(val)) return;
 
     setLocalValues((prev) => ({
       ...prev,
       [id]: val,
     }));
+  };
 
-    onChange(id, val === "" ? 0 : Number(val));
+  const handleBlur = (id: string) => {
+    const val = localValues[id] ?? "";
+
+    const normalized = val.replace(",", ".");
+    const parsed = Number(normalized);
+
+    onChange(id, isNaN(parsed) ? 0 : parsed);
   };
 
   const changeValue = (id: string, delta: number) => {
@@ -72,6 +75,13 @@ export default function VariablesPanel({
               value={localValues[v.id] ?? ""}
               placeholder="0"
               onChange={(e) => handleChange(v.id, e.target.value)}
+              onBlur={() => handleBlur(v.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleBlur(v.id);
+                  e.currentTarget.blur();
+                }
+              }}
             />
 
             <div className="controls">

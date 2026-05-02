@@ -8,11 +8,12 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
+import { useState, useRef } from "react";
 
-interface Point {
+type Point = {
   x: number;
-  y: number;
-}
+  y: number | null;
+};
 
 interface Props {
   data: Point[];
@@ -20,14 +21,48 @@ interface Props {
   yName: string;
 }
 
-const formatNumber = (value: number) => {
-  if (Math.abs(value) >= 100000) {
-    return value.toExponential(1);
+const LIMIT_X = 100;
+const LIMIT_Y = 100;
+const MIN_RANGE = 0.1;
+
+const clampDomain = (
+  [min, max]: [number, number],
+  limit: number,
+): [number, number] => {
+  const range = max - min;
+
+  if (range < MIN_RANGE) {
+    const center = (min + max) / 2;
+    return [center - MIN_RANGE / 2, center + MIN_RANGE / 2];
   }
-  return value.toString();
+
+  if (min < -limit) {
+    max += -limit - min;
+    min = -limit;
+  }
+
+  if (max > limit) {
+    min -= max - limit;
+    max = limit;
+  }
+
+  return [min, max];
+};
+
+const formatNumber = (value: number) => {
+  if (!isFinite(value)) return "";
+
+  const abs = Math.abs(value);
+
+  if (abs >= 100000) return value.toExponential(1);
+
+  if (abs < 0.001 && abs !== 0) return value.toExponential(1);
+
+  return Number(value.toFixed(2)).toString();
 };
 
 const formatValue = (v: number) => {
+  if (v === null) return "—";
   if (!isFinite(v)) return "∞";
   if (Math.abs(v) >= 1000) return v.toExponential(2);
   return Number(v.toFixed(3));
@@ -59,27 +94,144 @@ const CustomTooltip = ({ active, payload, label, xName, yName }: any) => {
 };
 
 export default function Graph({ data, xName, yName }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const [xDomain, setXDomain] = useState<[number, number]>([-10, 10]);
+  const [yDomain, setYDomain] = useState<[number, number]>([-10, 10]);
+
+  const [isDragging, setIsDragging] = useState(false);
+  const lastPos = useRef({ x: 0, y: 0 });
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 1) return;
+    e.preventDefault();
+
+    setIsDragging(true);
+    lastPos.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const stopDrag = () => setIsDragging(false);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+
+    const dx = e.clientX - lastPos.current.x;
+    const dy = e.clientY - lastPos.current.y;
+
+    lastPos.current = { x: e.clientX, y: e.clientY };
+
+    const width = containerRef.current?.clientWidth ?? 300;
+    const height = containerRef.current?.clientHeight ?? 260;
+
+    const xScale = (xDomain[1] - xDomain[0]) / width;
+    const yScale = (yDomain[1] - yDomain[0]) / height;
+
+    const shiftX = dx * xScale;
+    const shiftY = dy * yScale;
+
+    setXDomain(
+      clampDomain([xDomain[0] - shiftX, xDomain[1] - shiftX], LIMIT_X),
+    );
+
+    setYDomain(
+      clampDomain([yDomain[0] + shiftY, yDomain[1] + shiftY], LIMIT_Y),
+    );
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+
+    const zoomFactor = 0.1;
+
+    const xRange = xDomain[1] - xDomain[0];
+    const yRange = yDomain[1] - yDomain[0];
+
+    const delta = e.deltaY > 0 ? 1 + zoomFactor : 1 - zoomFactor;
+
+    const xCenter = (xDomain[0] + xDomain[1]) / 2;
+    const yCenter = (yDomain[0] + yDomain[1]) / 2;
+
+    const newXRange = xRange * delta;
+    const newYRange = yRange * delta;
+
+    setXDomain(
+      clampDomain([xCenter - newXRange / 2, xCenter + newXRange / 2], LIMIT_X),
+    );
+
+    setYDomain(
+      clampDomain([yCenter - newYRange / 2, yCenter + newYRange / 2], LIMIT_Y),
+    );
+  };
+
+  const handleDoubleClick = () => {
+    setXDomain([-1, 1]);
+    setYDomain([-1, 1]);
+  };
+
   return (
-    <ResponsiveContainer width="100%" height={260}>
-      <LineChart data={data} margin={{ top: 20, right: 30, left: 10, bottom: 10 }}>
-        <CartesianGrid stroke="#374151" strokeDasharray="3 3" />
-        <XAxis
-          dataKey="x"
-          tickFormatter={formatNumber}
-          tick={{ fill: "#9ca3af", fontSize: 12 }}
-          interval="preserveStartEnd"
-        />
-        <YAxis
-          tickFormatter={formatNumber}
-          tick={{ fill: "#9ca3af", fontSize: 12 }}
-          tickCount={6}
-          width={40}
-        />
-        <Tooltip content={<CustomTooltip xName={xName} yName={yName}/>} />
-        <Line type="monotone" dataKey="y" stroke="#3b82f6" dot={false} />
-        <ReferenceLine x={0} stroke="#9ca3af" strokeWidth={1.5} />
-        <ReferenceLine y={0} stroke="#9ca3af" strokeWidth={1.5} />
-      </LineChart>
-    </ResponsiveContainer>
+    <div style={{ width: "100%" }}>
+      <div
+        ref={containerRef}
+        style={{
+          width: "100%",
+          height: 260,
+          cursor: isDragging ? "grabbing" : "default",
+        }}
+        onMouseDown={handleMouseDown}
+        onMouseUp={stopDrag}
+        onMouseLeave={stopDrag}
+        onMouseMove={handleMouseMove}
+        onWheel={handleWheel}
+        onDoubleClick={handleDoubleClick}
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data}>
+            <CartesianGrid stroke="#374151" strokeDasharray="3 3" />
+
+            <XAxis
+              dataKey="x"
+              type="number"
+              domain={xDomain}
+              tickFormatter={formatNumber}
+              tick={{ fill: "#9ca3af", fontSize: 12 }}
+            />
+
+            <YAxis
+              type="number"
+              domain={yDomain}
+              tickFormatter={formatNumber}
+              tick={{ fill: "#9ca3af", fontSize: 12 }}
+              width={40}
+            />
+
+            <Tooltip content={<CustomTooltip xName={xName} yName={yName} />} />
+
+            <Line
+              type="monotone"
+              dataKey="y"
+              stroke="#3b82f6"
+              strokeWidth={2}
+              dot={false}
+              isAnimationActive={false}
+              connectNulls={false}
+            />
+
+            <ReferenceLine x={0} stroke="#9ca3af" />
+            <ReferenceLine y={0} stroke="#9ca3af" />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div
+        style={{
+          marginTop: 6,
+          fontSize: 11,
+          color: "#9ca3af",
+          textAlign: "center",
+        }}
+      >
+        Колесо — масштаб | Средняя кнопка — перемещение | Двойной клик — сброс
+      </div>
+    </div>
   );
 }

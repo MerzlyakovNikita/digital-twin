@@ -60,11 +60,7 @@ export default function App() {
         />
       </div>
 
-      <ResultPanel
-        nodes={nodes}
-        edges={edges}
-        values={variableValues}
-      />
+      <ResultPanel nodes={nodes} edges={edges} values={variableValues} />
     </div>
   );
 }

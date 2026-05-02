@@ -5,11 +5,12 @@ input::-webkit-inner-spin-button {
 }
 
 input[type="number"] {
-  appearance: textfield; 
+  appearance: textfield;
   -moz-appearance: textfield;
 }
 
-html, body {
+html,
+body {
   height: 100%;
   overflow: hidden;
 }
@@ -182,7 +183,8 @@ body {
   position: absolute;
 }
 
-.canvas, .node {
+.canvas,
+.node {
   user-select: none;
 }
 

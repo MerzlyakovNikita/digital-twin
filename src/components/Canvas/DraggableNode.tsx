@@ -22,7 +22,7 @@ export default function DraggableNode({
   updateNodeOperation,
   removeNode,
   updateNodeFunction,
-  updateNodeParam
+  updateNodeParam,
 }: Props) {
   const [dragging, setDragging] = useState(false);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -110,31 +110,33 @@ export default function DraggableNode({
         top: node.y,
       }}
     >
-    {hovered && (
-    <div
-        onClick={(e) => {
-          e.stopPropagation();
-          removeNode(node.id);
-        }}
-        style={{
-        position: "absolute",
-        top: -8,
-        right: -8,
-        width: 18,
-        height: 18,
-        background: "#ff4d4f",
-        color: "white",
-        fontSize: 12,
-        borderRadius: "50%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        cursor: "pointer",
-        zIndex: 10,
-        }}
-    >×</div>
-    )}
-    {node.type === "operation" && (
+      {hovered && (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            removeNode(node.id);
+          }}
+          style={{
+            position: "absolute",
+            top: -8,
+            right: -8,
+            width: 18,
+            height: 18,
+            background: "#ff4d4f",
+            color: "white",
+            fontSize: 12,
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            zIndex: 10,
+          }}
+        >
+          ×
+        </div>
+      )}
+      {node.type === "operation" && (
         <>
           <div
             id={`port-in-${node.id}-0`}
@@ -167,55 +169,56 @@ export default function DraggableNode({
             }}
           />
         </>
-    )}
+      )}
 
-    {node.type === "function" && (
-    <div
-        id={`port-in-${node.id}-0`}
-        onMouseUp={() => finishConnection(node.id, 0)}
-        style={{
-        position: "absolute",
-        left: -6,
-        top: "50%",
-        width: 10,
-        height: 10,
-        background: "blue",
-        borderRadius: "50%",
-        transform: "translateY(-50%)",
-        cursor: "pointer",
-        }}
-    />
-    )}
+      {node.type === "function" && (
+        <div
+          id={`port-in-${node.id}-0`}
+          onMouseUp={() => finishConnection(node.id, 0)}
+          style={{
+            position: "absolute",
+            left: -6,
+            top: "50%",
+            width: 10,
+            height: 10,
+            background: "blue",
+            borderRadius: "50%",
+            transform: "translateY(-50%)",
+            cursor: "pointer",
+          }}
+        />
+      )}
 
-    <div
+      <div
         onMouseDown={handleMouseDown}
         style={{
-        width: 140,
-        minHeight: 60,
-        padding: "10px 12px",
-        background: "#ffffff",
-        border: "1px solid #e5e7eb",
-        borderRadius: 10,
-        cursor: "grab",
-        userSelect: "none",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+          width: 100,
+          minHeight: 50,
+          padding: "10px 12px",
+          background: "#ffffff",
+          border: "1px solid #e5e7eb",
+          borderRadius: 10,
+          cursor: "grab",
+          userSelect: "none",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
 
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
-    >
-      {node.type === "variable" && (
-        <div
-          style={{
-            fontSize: 16,
-            textAlign: "center",
-            wordBreak: "break-word",
-            overflowWrap: "anywhere"
-          }}>
-          {node.name}
-        </div>
-      )}
+      >
+        {node.type === "variable" && (
+          <div
+            style={{
+              fontSize: 16,
+              textAlign: "center",
+              wordBreak: "break-word",
+              overflowWrap: "anywhere",
+            }}
+          >
+            {node.name}
+          </div>
+        )}
 
         {node.type === "operation" && (
           <div style={{ width: "100%" }}>
@@ -225,41 +228,57 @@ export default function DraggableNode({
                 textAlign: "center",
                 wordBreak: "break-word",
                 overflowWrap: "anywhere",
-                marginBottom: 4
-              }}>
-            {node.name}
+                marginBottom: 4,
+              }}
+            >
+              {node.name}
             </div>
 
             <select
-                value={node.operation}
-                onMouseDown={(e) => e.stopPropagation()}
-                onChange={(e) =>
-                    updateNodeOperation?.(
-                        node.id,
-                        e.target.value as OperationType
-                    )
-                }
-                style = {controlStyle}
+              value={node.operation}
+              onMouseDown={(e) => e.stopPropagation()}
+              onChange={(e) =>
+                updateNodeOperation?.(node.id, e.target.value as OperationType)
+              }
+              style={controlStyle}
             >
-                <option value="+">+</option>
-                <option value="-">-</option>
-                <option value="*">*</option>
-                <option value="/">/</option>
+              <option value="+">+</option>
+              <option value="-">-</option>
+              <option value="*">*</option>
+              <option value="/">/</option>
             </select>
           </div>
         )}
         {node.type === "function" && (
-        <div style={{ width: "100%" }}>
+          <div style={{ width: "100%" }}>
             <div
               style={{
                 fontSize: 16,
                 textAlign: "center",
                 wordBreak: "break-word",
                 overflowWrap: "anywhere",
-                marginBottom: 4
-              }}>
-            {node.name}
+                marginBottom: 4,
+              }}
+            >
+              {node.name}
             </div>
+
+            {node.func === "log" && (
+              <input
+                type="text"
+                value={node.param ?? ""}
+                placeholder="a"
+                onMouseDown={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  const val = e.target.value;
+
+                  if (/^[0-9]*\.?[0-9]*$/.test(val)) {
+                    updateNodeParam?.(node.id, val);
+                  }
+                }}
+                style={controlStyle}
+              />
+            )}
 
             {(node.func === "pow" || node.func === "root") && (
               <input
@@ -282,27 +301,27 @@ export default function DraggableNode({
               value={node.func}
               onMouseDown={(e) => e.stopPropagation()}
               onChange={(e) =>
-                  updateNodeFunction?.(
-                  node.id,
-                  e.target.value as FunctionType
-                  )
+                updateNodeFunction?.(node.id, e.target.value as FunctionType)
               }
               style={controlStyle}
             >
-            <option value="sin">sin</option>
-            <option value="cos">cos</option>
-            <option value="tan">tan</option>
-            <option value="log">log</option>
-            <option value="exp">exp</option>
-            <option value="abs">abs</option>
-            <option value="pow">pow (xⁿ)</option>
-            <option value="root">root (ⁿ√x)</option>
+              <option value="sin">sin</option>
+              <option value="cos">cos</option>
+              <option value="tan">tan</option>
+              <option value="log">logₐ</option>
+              <option value="ln">ln</option>
+              <option value="exp">exp</option>
+              <option value="abs">abs</option>
+              <option value="pow">pow (xⁿ)</option>
+              <option value="root">root (ⁿ√x)</option>
+              <option value="one">one</option>
+              <option value="sign">sgn</option>
             </select>
-        </div>
+          </div>
         )}
-    </div>
+      </div>
 
-    <div
+      <div
         id={`port-out-${node.id}`}
         onMouseDown={(e) => {
           e.stopPropagation();
@@ -320,7 +339,7 @@ export default function DraggableNode({
           cursor: "pointer",
           boxShadow: isConnectingFromThis ? "0 0 6px orange" : "none",
         }}
-        />
+      />
     </div>
   );
 }

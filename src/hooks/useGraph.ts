@@ -4,203 +4,197 @@ import type { Node, OperationType, FunctionType } from "../types/node";
 import type { Edge } from "../types/edge";
 
 export function useGraph() {
-    const [nodes, setNodes] = useState<Node[]>([]);
-    const [edges, setEdges] = useState<Edge[]>([]);
+  const [nodes, setNodes] = useState<Node[]>([]);
+  const [edges, setEdges] = useState<Edge[]>([]);
 
-    const [connecting, setConnecting] = useState<{
-      fromNodeId: string;
-    } | null>(null);
+  const [connecting, setConnecting] = useState<{
+    fromNodeId: string;
+  } | null>(null);
 
-    const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
+  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(
+    null,
+  );
 
-    const [variableValues, setVariableValues] = useState<Record<string, number>>({});
+  const [variableValues, setVariableValues] = useState<Record<string, number>>(
+    {},
+  );
 
-    const setVariableValue = (id: string, value: number) => {
-      setVariableValues((prev) => ({
-        ...prev,
-        [id]: value,
-      }));
-    };
+  const setVariableValue = (id: string, value: number) => {
+    setVariableValues((prev) => ({
+      ...prev,
+      [id]: value,
+    }));
+  };
 
-    const addVariable = (name: string) => {
-      const id = uuidv4();
+  const addVariable = (name: string) => {
+    const id = uuidv4();
 
-      const offset = nodes.length * 30;
+    const offset = nodes.length * 30;
 
-      setNodes((prev) => [
-        ...prev,
-        {
-          id,
-          type: "variable",
-          name,
-          x: 100 + offset,
-          y: 100 + offset,
-        },
-      ]);
+    setNodes((prev) => [
+      ...prev,
+      {
+        id,
+        type: "variable",
+        name,
+        x: 100 + offset,
+        y: 100 + offset,
+      },
+    ]);
 
-      setVariableValues((prev) => ({
-        ...prev,
-        [id]: 0,
-      }));
-    };
+    setVariableValues((prev) => ({
+      ...prev,
+      [id]: 0,
+    }));
+  };
 
-    const addOperation = (name: string) => {
-      const offset = nodes.length * 30;
+  const addOperation = (name: string) => {
+    const offset = nodes.length * 30;
 
-      setNodes((prev) => [
-        ...prev,
-        {
-          id: uuidv4(),
-          type: "operation",
-          name,
-          operation: "+",
-          x: 120 + offset,
-          y: 120 + offset,
-        },
-      ]);
-    };
+    setNodes((prev) => [
+      ...prev,
+      {
+        id: uuidv4(),
+        type: "operation",
+        name,
+        operation: "+",
+        x: 120 + offset,
+        y: 120 + offset,
+      },
+    ]);
+  };
 
-    const addFunction = (name: string) => {
-      const id = uuidv4();
-      const offset = nodes.length * 30;
+  const addFunction = (name: string) => {
+    const id = uuidv4();
+    const offset = nodes.length * 30;
 
-      setNodes((prev) => [
-        ...prev,
-        {
-          id,
-          type: "function",
-          name,
-          func: "sin",
-          x: 120 + offset,
-          y: 120 + offset,
-        },
-      ]);
-    };
+    setNodes((prev) => [
+      ...prev,
+      {
+        id,
+        type: "function",
+        name,
+        func: "sin",
+        x: 120 + offset,
+        y: 120 + offset,
+      },
+    ]);
+  };
 
-    const updatePosition = (id: string, x: number, y: number) => {
-      setNodes((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, x, y } : n))
+  const updatePosition = (id: string, x: number, y: number) => {
+    setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, x, y } : n)));
+  };
+
+  const updateMousePosition = (x: number, y: number) => {
+    setMousePos({ x, y });
+  };
+
+  const startConnection = (nodeId: string) => {
+    setConnecting({ fromNodeId: nodeId });
+  };
+
+  const finishConnection = (toNodeId: string, inputIndex?: 0 | 1) => {
+    if (!connecting) return;
+
+    const fromId = connecting.fromNodeId;
+
+    setEdges((prev) => {
+      let newEdges = [...prev];
+
+      const targetNode = nodes.find((n) => n.id === toNodeId);
+
+      newEdges = newEdges.filter(
+        (e) => !(e.from === fromId && e.to === toNodeId),
       );
-    };
 
-    const updateMousePosition = (x: number, y: number) => {
-      setMousePos({ x, y });
-    };
-
-    const startConnection = (nodeId: string) => {
-      setConnecting({ fromNodeId: nodeId });
-    };
-
-    const finishConnection = (toNodeId: string, inputIndex?: 0 | 1) => {
-      if (!connecting) return;
-
-      const fromId = connecting.fromNodeId;
-
-      setEdges((prev) => {
-        let newEdges = [...prev];
-
-        const targetNode = nodes.find(n => n.id === toNodeId);
-
+      if (targetNode?.type === "operation" && inputIndex !== undefined) {
         newEdges = newEdges.filter(
-          (e) => !(e.from === fromId && e.to === toNodeId)
+          (e) => !(e.to === toNodeId && e.inputIndex === inputIndex),
         );
+      }
 
-        if (targetNode?.type === "operation" && inputIndex !== undefined) {
-          newEdges = newEdges.filter(
-            (e) => !(e.to === toNodeId && e.inputIndex === inputIndex)
-          );
-        }
+      if (targetNode?.type === "function") {
+        newEdges = newEdges.filter((e) => e.to !== toNodeId);
+      }
 
-        if (targetNode?.type === "function") {
-          newEdges = newEdges.filter(
-            (e) => e.to !== toNodeId
-          );
-        }
-
-        newEdges.push({
-          id: uuidv4(),
-          from: connecting.fromNodeId,
-          to: toNodeId,
-          inputIndex,
-        });
-
-        return newEdges;
+      newEdges.push({
+        id: uuidv4(),
+        from: connecting.fromNodeId,
+        to: toNodeId,
+        inputIndex,
       });
 
-      setConnecting(null);
-      setMousePos(null);
-    };
+      return newEdges;
+    });
 
-    const removeEdge = (id: string) => {
-      setEdges((prev) => prev.filter((e) => e.id !== id));
-    };
+    setConnecting(null);
+    setMousePos(null);
+  };
 
-    const cancelConnection = () => {
-      setConnecting(null);
-      setMousePos(null);
-    };
+  const removeEdge = (id: string) => {
+    setEdges((prev) => prev.filter((e) => e.id !== id));
+  };
 
-    const updateNodeOperation = (id: string, op: OperationType) => {
-      setNodes((prev) =>
-        prev.map((node) => {
-          if (node.id === id && node.type === "operation") {
-            return {
-              ...node,
-              operation: op,
-            };
-          }
-          return node;
-        })
-      );
-    };
+  const cancelConnection = () => {
+    setConnecting(null);
+    setMousePos(null);
+  };
 
-    const removeNode = (id: string) => {
-      setNodes((prev) => prev.filter((n) => n.id !== id));
+  const updateNodeOperation = (id: string, op: OperationType) => {
+    setNodes((prev) =>
+      prev.map((node) => {
+        if (node.id === id && node.type === "operation") {
+          return {
+            ...node,
+            operation: op,
+          };
+        }
+        return node;
+      }),
+    );
+  };
 
-      setEdges((prev) =>
-        prev.filter((e) => e.from !== id && e.to !== id)
-      );
-    };
+  const removeNode = (id: string) => {
+    setNodes((prev) => prev.filter((n) => n.id !== id));
 
-    const updateNodeFunction = (id: string, func: FunctionType) => {
-      setNodes((prev) =>
-        prev.map((n) =>
-          n.id === id && n.type === "function"
-            ? { ...n, func }
-            : n
-        )
-      );
-    };
+    setEdges((prev) => prev.filter((e) => e.from !== id && e.to !== id));
+  };
 
-    const updateNodeParam = (id: string, param: string) => {
-      setNodes((prev) =>
-        prev.map((n) =>
-          n.id === id && n.type === "function"
-            ? { ...n, param }
-            : n
-        )
-      );
-    };
+  const updateNodeFunction = (id: string, func: FunctionType) => {
+    setNodes((prev) =>
+      prev.map((n) =>
+        n.id === id && n.type === "function" ? { ...n, func } : n,
+      ),
+    );
+  };
 
-    return {
-      nodes,
-      edges,
-      addVariable,
-      addOperation,
-      updatePosition,
-      startConnection,
-      finishConnection,
-      removeEdge,
-      connecting,
-      mousePos,
-      updateMousePosition,
-      cancelConnection,
-      updateNodeOperation,
-      removeNode,
-      variableValues,
-      setVariableValue,
-      addFunction,
-      updateNodeFunction,
-      updateNodeParam
-    };
+  const updateNodeParam = (id: string, param: string) => {
+    setNodes((prev) =>
+      prev.map((n) =>
+        n.id === id && n.type === "function" ? { ...n, param } : n,
+      ),
+    );
+  };
+
+  return {
+    nodes,
+    edges,
+    addVariable,
+    addOperation,
+    updatePosition,
+    startConnection,
+    finishConnection,
+    removeEdge,
+    connecting,
+    mousePos,
+    updateMousePosition,
+    cancelConnection,
+    updateNodeOperation,
+    removeNode,
+    variableValues,
+    setVariableValue,
+    addFunction,
+    updateNodeFunction,
+    updateNodeParam,
+  };
 }

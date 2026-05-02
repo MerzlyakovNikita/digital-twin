@@ -25,10 +25,13 @@ export type FunctionType =
   | "cos"
   | "tan"
   | "log"
+  | "ln"
   | "exp"
   | "abs"
   | "pow"
-  | "root";
+  | "root"
+  | "one"
+  | "sign";
 
 export interface FunctionNode extends BaseNode {
   type: "function";

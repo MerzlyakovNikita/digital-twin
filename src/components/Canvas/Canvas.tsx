@@ -2,6 +2,52 @@ import type { Node, OperationType, FunctionType } from "../../types/node";
 import type { Edge } from "../../types/edge";
 import DraggableNode from "./DraggableNode";
 
+function buildExpr(nodeId: string, nodes: Node[], edges: Edge[]): string {
+  const nodeMap = Object.fromEntries(nodes.map((n) => [n.id, n]));
+
+  function dfs(id: string): string {
+    const node = nodeMap[id];
+    if (!node) return "?";
+
+    if (node.type === "variable") return node.name;
+
+    if (node.type === "function") {
+      const input = edges.find((e) => e.to === id);
+      if (!input) return node.name;
+
+      const inner = dfs(input.from);
+
+      if (node.func === "pow") return `pow(${inner}, ${node.param})`;
+      if (node.func === "root") return `root(${inner}, ${node.param})`;
+      if (node.func === "log") return `log(${inner}, ${node.param})`;
+
+      return `${node.func}(${inner})`;
+    }
+
+    const inputs = edges
+      .filter((e) => e.to === id)
+      .sort((a, b) => (a.inputIndex ?? 0) - (b.inputIndex ?? 0));
+
+    if (inputs.length < 2) return node.name;
+
+    const left = dfs(inputs[0].from);
+    const right = dfs(inputs[1].from);
+
+    const opMap: Record<string, string> = {
+      "+": "add",
+      "-": "sub",
+      "*": "mul",
+      "/": "div",
+    };
+
+    return `${opMap[node.operation]}(${left}, ${right})`;
+  }
+
+  return dfs(nodeId);
+}
+
+const shorten = (s: string) => (s.length > 20 ? s.slice(0, 20) + "..." : s);
+
 interface Props {
   nodes: Node[];
   edges: Edge[];
@@ -24,9 +70,7 @@ function getPortPosition(id: string) {
   if (!el) return null;
 
   const rect = el.getBoundingClientRect();
-  const canvasRect = document
-    .querySelector(".canvas")!
-    .getBoundingClientRect();
+  const canvasRect = document.querySelector(".canvas")!.getBoundingClientRect();
 
   return {
     x: rect.left - canvasRect.left + rect.width / 2,
@@ -48,17 +92,14 @@ export default function Canvas({
   updateNodeOperation,
   removeNode,
   updateNodeFunction,
-  updateNodeParam
+  updateNodeParam,
 }: Props) {
   return (
     <div
       className="canvas"
       onMouseMove={(e) => {
         const rect = e.currentTarget.getBoundingClientRect();
-        updateMousePosition(
-          e.clientX - rect.left,
-          e.clientY - rect.top
-        );
+        updateMousePosition(e.clientX - rect.left, e.clientY - rect.top);
       }}
       onMouseDown={(e) => {
         if ((e.target as HTMLElement).closest(".node") === null) {
@@ -80,7 +121,9 @@ export default function Canvas({
           if (!from || !to) return null;
 
           const p1 = getPortPosition(`port-out-${from.id}`);
-          const p2 = getPortPosition(`port-in-${to.id}-${edge.inputIndex ?? 0}`);
+          const p2 = getPortPosition(
+            `port-in-${to.id}-${edge.inputIndex ?? 0}`,
+          );
 
           if (!p1 || !p2) return null;
 
@@ -89,9 +132,22 @@ export default function Canvas({
           const x2 = p2.x;
           const y2 = p2.y;
 
+          const midX = (x1 + x2) / 2;
+          const midY = (y1 + y2) / 2;
+
+          const label = shorten(buildExpr(edge.from, nodes, edges));
+
           return (
             <g key={edge.id}>
-              <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="black" strokeWidth={2} />
+              <line
+                x1={x1}
+                y1={y1}
+                x2={x2}
+                y2={y2}
+                stroke="black"
+                strokeWidth={2}
+              />
+
               <line
                 x1={x1}
                 y1={y1}
@@ -102,29 +158,47 @@ export default function Canvas({
                 style={{ cursor: "pointer", pointerEvents: "stroke" }}
                 onClick={() => removeEdge(edge.id)}
               />
+
+              <text
+                x={midX}
+                y={midY - 12}
+                fill="gray"
+                fontSize={12}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                style={{
+                  pointerEvents: "none",
+                  userSelect: "none",
+                }}
+              >
+                {label}
+                <title>{buildExpr(edge.from, nodes, edges)}</title>
+              </text>
             </g>
           );
         })}
 
-        {connecting && mousePos && (() => {
-          const from = nodes.find(n => n.id === connecting.fromNodeId);
-          if (!from) return null;
+        {connecting &&
+          mousePos &&
+          (() => {
+            const from = nodes.find((n) => n.id === connecting.fromNodeId);
+            if (!from) return null;
 
-          const p1 = getPortPosition(`port-out-${from.id}`);
-          if (!p1) return null;
+            const p1 = getPortPosition(`port-out-${from.id}`);
+            if (!p1) return null;
 
-          return (
-            <line
-              x1={p1.x}
-              y1={p1.y}
-              x2={mousePos.x}
-              y2={mousePos.y}
-              stroke="gray"
-              strokeDasharray="5,5"
-              strokeWidth={2}
-            />
-          );
-        })()}
+            return (
+              <line
+                x1={p1.x}
+                y1={p1.y}
+                x2={mousePos.x}
+                y2={mousePos.y}
+                stroke="gray"
+                strokeDasharray="5,5"
+                strokeWidth={2}
+              />
+            );
+          })()}
       </svg>
 
       {nodes.map((node) => (

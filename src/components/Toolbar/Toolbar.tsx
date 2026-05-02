@@ -9,7 +9,7 @@ interface Props {
 export default function Toolbar({
   onAddVariable,
   onAddOperation,
-  onAddFunction
+  onAddFunction,
 }: Props) {
   const [varName, setVarName] = useState("");
   const [opName, setOpName] = useState("");
@@ -36,7 +36,7 @@ export default function Toolbar({
       <input
         value={opName}
         onChange={(e) => setOpName(e.target.value)}
-        placeholder="Имя операции"
+        placeholder="Имя бинарной операции"
       />
       <button
         onClick={() => {
@@ -46,7 +46,7 @@ export default function Toolbar({
           setOpName("");
         }}
       >
-        Добавить операцию
+        Добавить бинарную операцию
       </button>
 
       <input
