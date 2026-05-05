@@ -8,7 +8,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 type Point = {
   x: number;
@@ -21,8 +21,8 @@ interface Props {
   yName: string;
 }
 
-const LIMIT_X = 100;
-const LIMIT_Y = 100;
+const LIMIT_X = 1000;
+const LIMIT_Y = 1000;
 const MIN_RANGE = 0.1;
 
 const clampDomain = (
@@ -138,30 +138,47 @@ export default function Graph({ data, xName, yName }: Props) {
     );
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
 
-    const zoomFactor = 0.1;
+    const wheelHandler = (e: WheelEvent) => {
+      e.preventDefault();
 
-    const xRange = xDomain[1] - xDomain[0];
-    const yRange = yDomain[1] - yDomain[0];
+      const zoomFactor = 0.1;
 
-    const delta = e.deltaY > 0 ? 1 + zoomFactor : 1 - zoomFactor;
+      const xRange = xDomain[1] - xDomain[0];
+      const yRange = yDomain[1] - yDomain[0];
 
-    const xCenter = (xDomain[0] + xDomain[1]) / 2;
-    const yCenter = (yDomain[0] + yDomain[1]) / 2;
+      const delta = e.deltaY > 0 ? 1 + zoomFactor : 1 - zoomFactor;
 
-    const newXRange = xRange * delta;
-    const newYRange = yRange * delta;
+      const xCenter = (xDomain[0] + xDomain[1]) / 2;
+      const yCenter = (yDomain[0] + yDomain[1]) / 2;
 
-    setXDomain(
-      clampDomain([xCenter - newXRange / 2, xCenter + newXRange / 2], LIMIT_X),
-    );
+      const newXRange = xRange * delta;
+      const newYRange = yRange * delta;
 
-    setYDomain(
-      clampDomain([yCenter - newYRange / 2, yCenter + newYRange / 2], LIMIT_Y),
-    );
-  };
+      setXDomain(
+        clampDomain(
+          [xCenter - newXRange / 2, xCenter + newXRange / 2],
+          LIMIT_X,
+        ),
+      );
+
+      setYDomain(
+        clampDomain(
+          [yCenter - newYRange / 2, yCenter + newYRange / 2],
+          LIMIT_Y,
+        ),
+      );
+    };
+
+    el.addEventListener("wheel", wheelHandler, { passive: false });
+
+    return () => {
+      el.removeEventListener("wheel", wheelHandler);
+    };
+  }, [xDomain, yDomain]);
 
   const handleDoubleClick = () => {
     setXDomain([-1, 1]);
@@ -181,10 +198,14 @@ export default function Graph({ data, xName, yName }: Props) {
         onMouseUp={stopDrag}
         onMouseLeave={stopDrag}
         onMouseMove={handleMouseMove}
-        onWheel={handleWheel}
         onDoubleClick={handleDoubleClick}
       >
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer
+          width="100%"
+          height={260}
+          minWidth={200}
+          minHeight={200}
+        >
           <LineChart data={data}>
             <CartesianGrid stroke="#374151" strokeDasharray="3 3" />
 
@@ -201,7 +222,7 @@ export default function Graph({ data, xName, yName }: Props) {
               domain={yDomain}
               tickFormatter={formatNumber}
               tick={{ fill: "#9ca3af", fontSize: 12 }}
-              width={40}
+              width={60}
             />
 
             <Tooltip content={<CustomTooltip xName={xName} yName={yName} />} />

@@ -46,8 +46,8 @@ export default function ResultPanel({ nodes, edges, values }: Props) {
 
     if (yNode.type === "function") {
       if (["sin", "cos", "tan"].includes(yNode.func)) {
-        min = -Math.PI * 2;
-        max = Math.PI * 2;
+        min = -Math.PI * 5;
+        max = Math.PI * 5;
         step = 0.05;
       }
     }
@@ -93,17 +93,25 @@ export default function ResultPanel({ nodes, edges, values }: Props) {
           .replace(/ln/g, "Math.log")
           .replace(/exp/g, "Math.exp")
           .replace(/pow\(([^,]+),([^)]+)\)/g, "Math.pow($1,$2)")
-          .replace(/root\(([^,]+),([^)]+)\)/g, "Math.pow($1, 1/$2)");
+          .replace(/root\(([^,]+),([^)]+)\)/g, "Math.pow($1, 1/$2)")
+          .replace(/add\(([^,]+),([^)]+)\)/g, "($1 + $2)")
+          .replace(/sub\(([^,]+),([^)]+)\)/g, "($1 - $2)")
+          .replace(/mul\(([^,]+),([^)]+)\)/g, "($1 * $2)")
+          .replace(/div\(([^,]+),([^)]+)\)/g, "($1 / $2)");
 
-        const regexX = new RegExp(`\\b${xNode.name}\\b`, "g");
-        jsExpr = jsExpr.replace(regexX, String(xValue));
+        const evalValues = {
+          ...values,
+          [xNode.id]: xValue,
+        };
 
         nodes.forEach((node) => {
-          if (node.type === "variable" && node.id !== xNode.id) {
-            const val = values[node.id] ?? 0;
-            const regex = new RegExp(`\\b${node.name}\\b`, "g");
-            jsExpr = jsExpr.replace(regex, String(val));
-          }
+          const val =
+            node.id === xNode.id
+              ? xValue
+              : evaluate(node.id, nodes, edges, evalValues);
+
+          const regex = new RegExp(`\\b${node.name}\\b`, "g");
+          jsExpr = jsExpr.replace(regex, String(val));
         });
 
         return eval(jsExpr);

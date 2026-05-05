@@ -2,6 +2,7 @@ import { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import type { Node, OperationType, FunctionType } from "../types/node";
 import type { Edge } from "../types/edge";
+import { sampleTemplate } from "./templates";
 
 export function useGraph() {
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -18,6 +19,46 @@ export function useGraph() {
   const [variableValues, setVariableValues] = useState<Record<string, number>>(
     {},
   );
+
+  const saveGraph = () => {
+    const data = {
+      nodes,
+      edges,
+      values: variableValues,
+    };
+
+    localStorage.setItem("graph", JSON.stringify(data));
+    alert("Схема сохранена");
+  };
+
+  const loadSavedGraph = () => {
+    const saved = localStorage.getItem("graph");
+
+    if (!saved) {
+      alert("Нет сохранённой схемы");
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(saved);
+
+      setNodes(parsed.nodes ?? []);
+      setEdges(parsed.edges ?? []);
+      setVariableValues(parsed.values ?? {});
+    } catch {
+      alert("Ошибка загрузки данных");
+    }
+  };
+
+  const clearCanvas = () => {
+    setNodes([]);
+    setEdges([]);
+  };
+
+  const loadTemplate = () => {
+    setNodes(sampleTemplate.nodes);
+    setEdges(sampleTemplate.edges);
+  };
 
   const setVariableValue = (id: string, value: number) => {
     setVariableValues((prev) => ({
@@ -196,5 +237,9 @@ export function useGraph() {
     addFunction,
     updateNodeFunction,
     updateNodeParam,
+    clearCanvas,
+    loadTemplate,
+    saveGraph,
+    loadSavedGraph,
   };
 }

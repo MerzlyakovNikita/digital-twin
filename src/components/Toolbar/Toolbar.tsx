@@ -4,12 +4,18 @@ interface Props {
   onAddVariable: (name: string) => void;
   onAddOperation: (name: string) => void;
   onAddFunction: (name: string) => void;
+  loadTemplate: () => void;
+  saveGraph: () => void;
+  loadSavedGraph: () => void;
 }
 
 export default function Toolbar({
   onAddVariable,
   onAddOperation,
   onAddFunction,
+  loadTemplate,
+  saveGraph,
+  loadSavedGraph,
 }: Props) {
   const [varName, setVarName] = useState("");
   const [opName, setOpName] = useState("");
@@ -30,7 +36,7 @@ export default function Toolbar({
           setVarName("");
         }}
       >
-        Добавить переменную
+        Добавить
       </button>
 
       <input
@@ -46,7 +52,7 @@ export default function Toolbar({
           setOpName("");
         }}
       >
-        Добавить бинарную операцию
+        Добавить
       </button>
 
       <input
@@ -63,8 +69,12 @@ export default function Toolbar({
           setFuncName("");
         }}
       >
-        Добавить функцию
+        Добавить
       </button>
+
+      <button onClick={loadTemplate}>📂 Шаблон</button>
+      <button onClick={saveGraph}>💾 Сохранить</button>
+      <button onClick={loadSavedGraph}>📁 Загрузить</button>
     </div>
   );
 }

@@ -25,6 +25,10 @@ export default function App() {
     updateNodeParam,
     variableValues,
     setVariableValue,
+    clearCanvas,
+    loadTemplate,
+    saveGraph,
+    loadSavedGraph,
   } = useGraph();
 
   return (
@@ -40,6 +44,9 @@ export default function App() {
           onAddVariable={addVariable}
           onAddOperation={addOperation}
           onAddFunction={addFunction}
+          loadTemplate={loadTemplate}
+          saveGraph={saveGraph}
+          loadSavedGraph={loadSavedGraph}
         />
 
         <Canvas
@@ -57,6 +64,7 @@ export default function App() {
           removeNode={removeNode}
           updateNodeFunction={updateNodeFunction}
           updateNodeParam={updateNodeParam}
+          clearCanvas={clearCanvas}
         />
       </div>
 

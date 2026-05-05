@@ -11,6 +11,7 @@ interface Props {
   removeNode: (id: string) => void;
   updateNodeFunction?: (id: string, func: FunctionType) => void;
   updateNodeParam?: (id: string, param: string) => void;
+  offset: { x: number; y: number };
 }
 
 export default function DraggableNode({
@@ -23,9 +24,10 @@ export default function DraggableNode({
   removeNode,
   updateNodeFunction,
   updateNodeParam,
+  offset,
 }: Props) {
   const [dragging, setDragging] = useState(false);
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [hovered, setHovered] = useState(false);
   const nodeRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<number | null>(null);
@@ -42,16 +44,13 @@ export default function DraggableNode({
         const canvas = document.querySelector(".canvas") as HTMLElement;
         if (!canvas) return;
 
-        const rect = canvas.getBoundingClientRect();
+        let x = e.clientX - dragOffset.x - offset.x;
+        let y = e.clientY - dragOffset.y - offset.y;
 
-        let x = e.clientX - rect.left - offset.x;
-        let y = e.clientY - rect.top - offset.y;
+        const LIMIT = 5000;
 
-        const NODE_WIDTH = 140;
-        const NODE_HEIGHT = 80;
-
-        x = Math.max(0, Math.min(x, rect.width - NODE_WIDTH));
-        y = Math.max(0, Math.min(y, rect.height - NODE_HEIGHT));
+        x = Math.max(-LIMIT, Math.min(x, LIMIT));
+        y = Math.max(-LIMIT, Math.min(y, LIMIT));
 
         updatePosition(node.id, x, y);
 
@@ -80,14 +79,12 @@ export default function DraggableNode({
         frameRef.current = null;
       }
     };
-  }, [dragging, offset, node.id, updatePosition]);
+  }, [dragging, dragOffset, node.id, updatePosition]);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-
-    setOffset({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
+    setDragOffset({
+      x: e.clientX - node.x - offset.x,
+      y: e.clientY - node.y - offset.y,
     });
 
     if (frameRef.current) {
@@ -106,8 +103,8 @@ export default function DraggableNode({
       onMouseLeave={() => setHovered(false)}
       style={{
         position: "absolute",
-        left: node.x,
-        top: node.y,
+        left: node.x + offset.x,
+        top: node.y + offset.y,
       }}
     >
       {hovered && (

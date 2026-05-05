@@ -1,3 +1,4 @@
+import { useState, useRef } from "react";
 import type { Node, OperationType, FunctionType } from "../../types/node";
 import type { Edge } from "../../types/edge";
 import DraggableNode from "./DraggableNode";
@@ -48,6 +49,19 @@ function buildExpr(nodeId: string, nodes: Node[], edges: Edge[]): string {
 
 const shorten = (s: string) => (s.length > 20 ? s.slice(0, 20) + "..." : s);
 
+function getPortPosition(id: string) {
+  const el = document.getElementById(id);
+  if (!el) return null;
+
+  const rect = el.getBoundingClientRect();
+  const canvasRect = document.querySelector(".canvas")!.getBoundingClientRect();
+
+  return {
+    x: rect.left - canvasRect.left + rect.width / 2,
+    y: rect.top - canvasRect.top + rect.height / 2,
+  };
+}
+
 interface Props {
   nodes: Node[];
   edges: Edge[];
@@ -63,56 +77,100 @@ interface Props {
   removeNode: (id: string) => void;
   updateNodeFunction?: (id: string, func: FunctionType) => void;
   updateNodeParam?: (id: string, param: string) => void;
+  clearCanvas: () => void;
 }
 
-function getPortPosition(id: string) {
-  const el = document.getElementById(id);
-  if (!el) return null;
+export default function Canvas(props: Props) {
+  const {
+    nodes,
+    edges,
+    updatePosition,
+    startConnection,
+    finishConnection,
+    removeEdge,
+    connecting,
+    mousePos,
+    updateMousePosition,
+    cancelConnection,
+    updateNodeOperation,
+    removeNode,
+    updateNodeFunction,
+    updateNodeParam,
+  } = props;
 
-  const rect = el.getBoundingClientRect();
-  const canvasRect = document.querySelector(".canvas")!.getBoundingClientRect();
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const last = useRef({ x: 0, y: 0 });
 
-  return {
-    x: rect.left - canvasRect.left + rect.width / 2,
-    y: rect.top - canvasRect.top + rect.height / 2,
-  };
-}
-
-export default function Canvas({
-  nodes,
-  edges,
-  updatePosition,
-  startConnection,
-  finishConnection,
-  removeEdge,
-  connecting,
-  mousePos,
-  updateMousePosition,
-  cancelConnection,
-  updateNodeOperation,
-  removeNode,
-  updateNodeFunction,
-  updateNodeParam,
-}: Props) {
   return (
     <div
       className="canvas"
-      onMouseMove={(e) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        updateMousePosition(e.clientX - rect.left, e.clientY - rect.top);
+      style={{
+        position: "relative",
+        cursor: isPanning ? "grabbing" : "default",
       }}
       onMouseDown={(e) => {
+        if (e.button === 1) {
+          e.preventDefault();
+          setIsPanning(true);
+          last.current = { x: e.clientX, y: e.clientY };
+          return;
+        }
+
         if ((e.target as HTMLElement).closest(".node") === null) {
           cancelConnection();
         }
       }}
-      style={{ position: "relative" }}
+      onMouseMove={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+
+        updateMousePosition(e.clientX - rect.left, e.clientY - rect.top);
+
+        if (!isPanning) return;
+
+        const dx = e.clientX - last.current.x;
+        const dy = e.clientY - last.current.y;
+
+        last.current = { x: e.clientX, y: e.clientY };
+
+        setOffset((prev) => ({
+          x: prev.x + dx,
+          y: prev.y + dy,
+        }));
+      }}
+      onMouseUp={() => setIsPanning(false)}
+      onMouseLeave={() => setIsPanning(false)}
     >
+      <div
+        style={{
+          position: "absolute",
+          top: 10,
+          right: 10,
+          display: "flex",
+          gap: 8,
+          zIndex: 1000,
+        }}
+      >
+        <button onClick={() => setOffset({ x: 0, y: 0 })} style={btnStyle}>
+          Сбросить положение
+        </button>
+
+        <button
+          onClick={props.clearCanvas}
+          style={{ ...btnStyle, background: "#ef4444" }}
+        >
+          Очистить
+        </button>
+      </div>
       <svg
         className="edges"
         width="100%"
         height="100%"
-        style={{ position: "absolute", top: 0, left: 0 }}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+        }}
       >
         {edges.map((edge) => {
           const from = nodes.find((n) => n.id === edge.from);
@@ -166,10 +224,7 @@ export default function Canvas({
                 fontSize={12}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                style={{
-                  pointerEvents: "none",
-                  userSelect: "none",
-                }}
+                style={{ pointerEvents: "none", userSelect: "none" }}
               >
                 {label}
                 <title>{buildExpr(edge.from, nodes, edges)}</title>
@@ -201,20 +256,40 @@ export default function Canvas({
           })()}
       </svg>
 
-      {nodes.map((node) => (
-        <DraggableNode
-          key={node.id}
-          node={node}
-          updatePosition={updatePosition}
-          startConnection={startConnection}
-          finishConnection={finishConnection}
-          connecting={connecting}
-          updateNodeOperation={updateNodeOperation}
-          removeNode={removeNode}
-          updateNodeFunction={updateNodeFunction}
-          updateNodeParam={updateNodeParam}
-        />
-      ))}
+      <div
+        style={{
+          transform: `translate(${offset.x}px, ${offset.y}px)`,
+          position: "absolute",
+          top: 0,
+          left: 0,
+        }}
+      >
+        {nodes.map((node) => (
+          <DraggableNode
+            key={node.id}
+            node={node}
+            offset={offset}
+            updatePosition={updatePosition}
+            startConnection={startConnection}
+            finishConnection={finishConnection}
+            connecting={connecting}
+            updateNodeOperation={updateNodeOperation}
+            removeNode={removeNode}
+            updateNodeFunction={updateNodeFunction}
+            updateNodeParam={updateNodeParam}
+          />
+        ))}
+      </div>
     </div>
   );
 }
+
+const btnStyle: React.CSSProperties = {
+  padding: "6px 10px",
+  background: "#374151",
+  color: "white",
+  border: "none",
+  borderRadius: 6,
+  cursor: "pointer",
+  fontSize: 12,
+};
