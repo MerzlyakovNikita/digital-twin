@@ -74,6 +74,10 @@ export default function ResultPanel({ nodes, edges, values }: Props) {
     }
 
     const round = (v: number) => {
+      if (Math.abs(v) < 1e-10) {
+        return 0;
+      }
+
       if (Math.abs(v) < 0.001) {
         return Number(v.toExponential(3));
       }
@@ -303,13 +307,159 @@ export default function ResultPanel({ nodes, edges, values }: Props) {
               return <div>{inverse.reason}</div>;
             }
 
+            const evalInverseExpr = (expr: string, xValue: number) => {
+              try {
+                let jsExpr = expr
+                  .replaceAll("^", "**")
+                  .replace(/arcsin/g, "Math.asin")
+                  .replace(/arccos/g, "Math.acos")
+                  .replace(/arctan/g, "Math.atan")
+                  .replace(/abs\(/g, "(")
+                  .replace(/ln/g, "Math.log")
+                  .replace(/exp/g, "Math.exp")
+                  .replace(/pow\(([^,]+),([^)]+)\)/g, "Math.pow($1,$2)")
+                  .replace(/root\(([^,]+),([^)]+)\)/g, "Math.pow($1, 1/$2)");
+
+                const absNode = nodes.find(
+                  (n) => n.type === "function" && n.func === "abs",
+                );
+
+                let absInputValue: number | null = null;
+
+                if (absNode) {
+                  const absInputEdge = edges.find((e) => e.to === absNode.id);
+
+                  if (absInputEdge) {
+                    absInputValue = evaluate(
+                      absInputEdge.from,
+                      nodes,
+                      edges,
+                      values,
+                    );
+                  }
+                }
+
+                nodes.forEach((node) => {
+                  if (
+                    absNode &&
+                    node.id === absNode.id &&
+                    absInputValue !== null
+                  ) {
+                    jsExpr = jsExpr.replace(
+                      new RegExp(`\\+\\(${node.name}\\)`, "g"),
+                      `+(${absInputValue})`,
+                    );
+
+                    jsExpr = jsExpr.replace(
+                      new RegExp(`-\\(${node.name}\\)`, "g"),
+                      `-(${absInputValue})`,
+                    );
+                  }
+
+                  const regex = new RegExp(`\\b${node.name}\\b`, "g");
+
+                  if (node.id === xNode.id) {
+                    jsExpr = jsExpr.replace(
+                      regex,
+                      String(evaluate(xNode.id, nodes, edges, values)),
+                    );
+                  } else {
+                    const val = evaluate(node.id, nodes, edges, values);
+
+                    jsExpr = jsExpr.replace(regex, String(val));
+                  }
+                });
+
+                return Function(
+                  "add",
+                  "sub",
+                  "mul",
+                  "div",
+                  `"use strict"; return (${jsExpr})`,
+                )(
+                  (a: number, b: number) => a + b,
+                  (a: number, b: number) => a - b,
+                  (a: number, b: number) => a * b,
+                  (a: number, b: number) => a / b,
+                );
+              } catch {
+                return NaN;
+              }
+            };
+
             return (
               <>
-                {inverse.exprs.map((expr, index) => (
-                  <div key={index}>
-                    {yNode.name} = {expr}
-                  </div>
-                ))}
+                {inverse.exprs.map((expr, index) => {
+                  let substituted = expr;
+
+                  const absNode = nodes.find(
+                    (n) => n.type === "function" && n.func === "abs",
+                  );
+
+                  let absInputValue: number | null = null;
+
+                  if (absNode) {
+                    const absInputEdge = edges.find((e) => e.to === absNode.id);
+
+                    if (absInputEdge) {
+                      absInputValue = evaluate(
+                        absInputEdge.from,
+                        nodes,
+                        edges,
+                        values,
+                      );
+                    }
+                  }
+
+                  nodes.forEach((node) => {
+                    let val = evaluate(node.id, nodes, edges, values);
+
+                    if (isNaN(val) || !isFinite(val)) {
+                      return;
+                    }
+
+                    if (
+                      absNode &&
+                      node.id === absNode.id &&
+                      absInputValue !== null
+                    ) {
+                      substituted = substituted.replace(
+                        new RegExp(`\\+\\(${node.name}\\)`, "g"),
+                        `+(${Math.round(absInputValue * 10000) / 10000})`,
+                      );
+
+                      substituted = substituted.replace(
+                        new RegExp(`-\\(${node.name}\\)`, "g"),
+                        `-(${Math.round(absInputValue * 10000) / 10000})`,
+                      );
+                    }
+
+                    const regex = new RegExp(`\\b${node.name}\\b`, "g");
+
+                    substituted = substituted.replace(
+                      regex,
+                      String(Math.round(val * 10000) / 10000),
+                    );
+                  });
+
+                  const finalValue =
+                    index === 0
+                      ? evaluate(yNode.id, nodes, edges, values)
+                      : evalInverseExpr(
+                          expr,
+                          evaluate(xNode.id, nodes, edges, values),
+                        );
+
+                  return (
+                    <div key={index}>
+                      {yNode.name} = {expr}
+                      {" = "}
+                      {substituted}
+                      {" = "}
+                      {Math.round(finalValue * 10000) / 10000}
+                    </div>
+                  );
+                })}
               </>
             );
           })()}
