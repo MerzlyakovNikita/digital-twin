@@ -442,21 +442,11 @@ export default function ResultPanel({ nodes, edges, values }: Props) {
                     );
                   });
 
-                  const finalValue =
-                    index === 0
-                      ? evaluate(yNode.id, nodes, edges, values)
-                      : evalInverseExpr(
-                          expr,
-                          evaluate(xNode.id, nodes, edges, values),
-                        );
-
                   return (
                     <div key={index}>
                       {yNode.name} = {expr}
                       {" = "}
                       {substituted}
-                      {" = "}
-                      {Math.round(finalValue * 10000) / 10000}
                     </div>
                   );
                 })}

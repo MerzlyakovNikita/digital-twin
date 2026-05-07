@@ -34,17 +34,30 @@ function findReversePath(
     if (visited.has(id)) continue;
     visited.add(id);
 
-    edges
-      .filter((e) => e.from === id)
-      .forEach((e) => {
-        const node = nodes.find((n) => n.id === e.to);
-        if (!node) return;
+    edges.forEach((e) => {
+      let nextId: string | null = null;
+      let nextNode: Node | undefined;
+      let inputIndex = e.inputIndex ?? 0;
 
-        queue.push({
-          id: e.to,
-          path: [...path, { node, inputIndex: e.inputIndex ?? 0 }],
-        });
+      if (e.from === id) {
+        nextId = e.to;
+        nextNode = nodes.find((n) => n.id === e.to);
+      } else if (e.to === id) {
+        nextId = e.from;
+        nextNode = nodes.find((n) => n.id === e.from);
+      }
+
+      if (!nextId || !nextNode) return;
+
+      if (nextNode.type === "variable" && nextNode.id !== targetId) {
+        return;
+      }
+
+      queue.push({
+        id: nextId,
+        path: [...path, { node: nextNode, inputIndex }],
       });
+    });
   }
 
   return null;
@@ -161,6 +174,10 @@ export function buildInverseFormula(
   let exprs = [getNode(nodes, givenId)?.name ?? "X"];
 
   for (const step of path.reverse()) {
+    if (step.node.type === "variable") {
+      continue;
+    }
+
     const inputs = getInputs(step.node.id, nodes, edges);
 
     const nextExprs: string[] = [];
