@@ -34,9 +34,22 @@ export default function ResultPanel({ nodes, edges, values }: Props) {
   const yNode = nodes.find((n) => n.id === yNodeId);
 
   const data = useMemo(() => {
-    if (!xNodeId || !yNodeId || !xNode || !yNode) return [];
+    if (!xNodeId || !yNodeId || !xNode || !yNode) {
+      return {
+        first: [],
+        second: [],
+      };
+    }
 
-    const result: { x: number; y: number | null }[] = [];
+    const result1: {
+      x: number;
+      y: number | null;
+    }[] = [];
+
+    const result2: {
+      x: number;
+      y: number | null;
+    }[] = [];
 
     const isForward = hasForwardPath(xNode.id, yNode.id, edges);
 
@@ -60,7 +73,13 @@ export default function ResultPanel({ nodes, edges, values }: Props) {
       }
     }
 
-    const round = (v: number) => Math.round(v * 1000) / 1000;
+    const round = (v: number) => {
+      if (Math.abs(v) < 0.001) {
+        return Number(v.toExponential(3));
+      }
+
+      return Math.round(v * 1000) / 1000;
+    };
 
     if (isForward) {
       for (let x = min; x <= max; x += step) {
@@ -71,65 +90,117 @@ export default function ResultPanel({ nodes, edges, values }: Props) {
 
         const y = evaluate(yNodeId, nodes, edges, newValues, xNodeId, x);
 
-        result.push({
+        const roundedY = !isNaN(y) && isFinite(y) ? round(y) : null;
+
+        const prev = result1[result1.length - 1];
+
+        if (
+          prev &&
+          prev.y !== null &&
+          roundedY !== null &&
+          Math.abs(prev.y - roundedY) > 20
+        ) {
+          result1.push({
+            x: round(x),
+            y: null,
+          });
+        }
+
+        result1.push({
           x: round(x),
-          y: !isNaN(y) && isFinite(y) ? round(y) : null,
+          y: roundedY,
         });
       }
 
-      return result;
+      return {
+        first: result1,
+        second: result2,
+      };
     }
 
     const inverse = buildInverseFormula(yNode.id, xNode.id, nodes, edges);
-    if (!inverse.ok) return [];
-
-    const evalInverse = (expr: string, xValue: number) => {
-      try {
-        let jsExpr = expr
-          .replaceAll("^", "**")
-          .replace(/arcsin/g, "Math.asin")
-          .replace(/arccos/g, "Math.acos")
-          .replace(/arctan/g, "Math.atan")
-          .replace(/ln/g, "Math.log")
-          .replace(/exp/g, "Math.exp")
-          .replace(/pow\(([^,]+),([^)]+)\)/g, "Math.pow($1,$2)")
-          .replace(/root\(([^,]+),([^)]+)\)/g, "Math.pow($1, 1/$2)")
-          .replace(/add\(([^,]+),([^)]+)\)/g, "($1 + $2)")
-          .replace(/sub\(([^,]+),([^)]+)\)/g, "($1 - $2)")
-          .replace(/mul\(([^,]+),([^)]+)\)/g, "($1 * $2)")
-          .replace(/div\(([^,]+),([^)]+)\)/g, "($1 / $2)");
-
-        const evalValues = {
-          ...values,
-          [xNode.id]: xValue,
-        };
-
-        nodes.forEach((node) => {
-          const val =
-            node.id === xNode.id
-              ? xValue
-              : evaluate(node.id, nodes, edges, evalValues);
-
-          const regex = new RegExp(`\\b${node.name}\\b`, "g");
-          jsExpr = jsExpr.replace(regex, String(val));
-        });
-
-        return eval(jsExpr);
-      } catch {
-        return NaN;
-      }
-    };
-
-    for (let x = min; x <= max; x += step) {
-      const y = evalInverse(inverse.expr, x);
-
-      result.push({
-        x: round(x),
-        y: !isNaN(y) && isFinite(y) ? round(y) : null,
-      });
+    if (!inverse.ok) {
+      return {
+        first: [],
+        second: [],
+      };
     }
 
-    return result;
+    const compiledExprs = inverse.exprs.map((expr) => {
+      let jsExpr = expr
+        .replaceAll("^", "**")
+        .replace(/arcsin/g, "Math.asin")
+        .replace(/arccos/g, "Math.acos")
+        .replace(/arctan/g, "Math.atan")
+        .replace(/abs\(/g, "(")
+        .replace(/ln/g, "Math.log")
+        .replace(/exp/g, "Math.exp")
+        .replace(/pow\(([^,]+),([^)]+)\)/g, "Math.pow($1,$2)")
+        .replace(/root\(([^,]+),([^)]+)\)/g, "Math.pow($1, 1/$2)");
+
+      nodes.forEach((node) => {
+        const regex = new RegExp(`\\b${node.name}\\b`, "g");
+
+        if (node.id === xNode.id) {
+          jsExpr = jsExpr.replace(regex, "x");
+        } else {
+          const val = evaluate(node.id, nodes, edges, values);
+
+          jsExpr = jsExpr.replace(regex, String(val));
+        }
+      });
+
+      return Function(
+        "add",
+        "sub",
+        "mul",
+        "div",
+        "x",
+        `"use strict"; return (${jsExpr})`,
+      );
+    });
+
+    inverse.exprs.forEach((expr, exprIndex) => {
+      const fn = compiledExprs[exprIndex];
+
+      const currentResult = exprIndex === 0 ? result1 : result2;
+
+      for (let x = min; x <= max; x += step) {
+        const y = fn(
+          (a: number, b: number) => a + b,
+          (a: number, b: number) => a - b,
+          (a: number, b: number) => a * b,
+          (a: number, b: number) => a / b,
+          x,
+        );
+
+        const roundedY = !isNaN(y) && isFinite(y) ? round(y) : null;
+
+        const prev = currentResult[currentResult.length - 1];
+
+        if (
+          prev &&
+          prev.y !== null &&
+          roundedY !== null &&
+          Math.abs(prev.y - roundedY) > 20
+        ) {
+          currentResult.push({
+            x: round(x),
+            y: null,
+          });
+        }
+
+        currentResult.push({
+          x: round(x),
+          y: roundedY,
+        });
+      }
+    });
+
+    return {
+      first: result1,
+      second: result2,
+    };
   }, [xNodeId, yNodeId, values, nodes, edges, xNode, yNode]);
 
   const sortedNodes = [...allNodes].sort((a, b) => {
@@ -233,16 +304,20 @@ export default function ResultPanel({ nodes, edges, values }: Props) {
             }
 
             return (
-              <div>
-                {yNode.name} = {inverse.expr}
-              </div>
+              <>
+                {inverse.exprs.map((expr, index) => (
+                  <div key={index}>
+                    {yNode.name} = {expr}
+                  </div>
+                ))}
+              </>
             );
           })()}
       </div>
 
       <h4 className="section-title">График зависимости</h4>
       <div className="graph">
-        {data.length > 0 && xNode && yNode && (
+        {data.first.length > 0 && xNode && yNode && (
           <Graph data={data} xName={xNode.name} yName={yNode.name} />
         )}
       </div>

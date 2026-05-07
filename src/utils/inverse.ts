@@ -1,7 +1,7 @@
 import type { Node } from "../types/node";
 import type { Edge } from "../types/edge";
 
-type StepResult = { ok: true; expr: string } | { ok: false; reason: string };
+type StepResult = { ok: true; exprs: string[] } | { ok: false; reason: string };
 
 type PathStep = {
   node: Node;
@@ -64,37 +64,41 @@ function invertStep(
       case "+":
         return {
           ok: true,
-          expr:
+          exprs: [
             inputIndex === 0
               ? `sub(${currentExpr}, ${b})`
               : `sub(${currentExpr}, ${a})`,
+          ],
         };
 
       case "-":
         return {
           ok: true,
-          expr:
+          exprs: [
             inputIndex === 0
               ? `add(${currentExpr}, ${b})`
               : `sub(${a}, ${currentExpr})`,
+          ],
         };
 
       case "*":
         return {
           ok: true,
-          expr:
+          exprs: [
             inputIndex === 0
               ? `div(${currentExpr}, ${b})`
               : `div(${currentExpr}, ${a})`,
+          ],
         };
 
       case "/":
         return {
           ok: true,
-          expr:
+          exprs: [
             inputIndex === 0
               ? `mul(${currentExpr}, ${b})`
               : `div(${a}, ${currentExpr})`,
+          ],
         };
     }
   }
@@ -102,30 +106,34 @@ function invertStep(
   if (node.type === "function") {
     switch (node.func) {
       case "sin":
-        return { ok: true, expr: `arcsin(${currentExpr})` };
+        return { ok: true, exprs: [`arcsin(${currentExpr})`] };
 
       case "cos":
-        return { ok: true, expr: `arccos(${currentExpr})` };
+        return { ok: true, exprs: [`arccos(${currentExpr})`] };
 
       case "tan":
-        return { ok: true, expr: `arctan(${currentExpr})` };
+        return { ok: true, exprs: [`arctan(${currentExpr})`] };
 
       case "log":
-        return { ok: true, expr: `pow(${node.param}, ${currentExpr})` };
+        return { ok: true, exprs: [`pow(${node.param}, ${currentExpr})`] };
 
       case "ln":
-        return { ok: true, expr: `exp(${currentExpr})` };
+        return { ok: true, exprs: [`exp(${currentExpr})`] };
 
       case "exp":
-        return { ok: true, expr: `ln(${currentExpr})` };
+        return { ok: true, exprs: [`ln(${currentExpr})`] };
 
       case "pow":
-        return { ok: true, expr: `root(${currentExpr}, ${node.param})` };
+        return { ok: true, exprs: [`root(${currentExpr}, ${node.param})`] };
 
       case "root":
-        return { ok: true, expr: `pow(${currentExpr}, ${node.param})` };
+        return { ok: true, exprs: [`pow(${currentExpr}, ${node.param})`] };
 
       case "abs":
+        return {
+          ok: true,
+          exprs: [`+(${currentExpr})`, `-(${currentExpr})`],
+        };
       case "one":
       case "sign":
         return {
@@ -150,19 +158,27 @@ export function buildInverseFormula(
     return { ok: false, reason: "Нет пути между выбранными узлами" };
   }
 
-  let expr = getNode(nodes, givenId)?.name ?? "X";
+  let exprs = [getNode(nodes, givenId)?.name ?? "X"];
 
   for (const step of path.reverse()) {
     const inputs = getInputs(step.node.id, nodes, edges);
 
-    const res = invertStep(step.node, expr, step.inputIndex, inputs);
+    const nextExprs: string[] = [];
 
-    if (!res.ok) return res;
+    for (const expr of exprs) {
+      const res = invertStep(step.node, expr, step.inputIndex, inputs);
 
-    expr = res.expr;
+      if (!res.ok) {
+        return res;
+      }
+
+      nextExprs.push(...res.exprs);
+    }
+
+    exprs = nextExprs;
   }
 
-  return { ok: true, expr };
+  return { ok: true, exprs };
 }
 
 export const hasForwardPath = (fromId: string, toId: string, edges: Edge[]) => {

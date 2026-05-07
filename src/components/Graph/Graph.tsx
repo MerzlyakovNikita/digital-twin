@@ -16,13 +16,17 @@ type Point = {
 };
 
 interface Props {
-  data: Point[];
+  data: {
+    first: Point[];
+    second: Point[];
+  };
+
   xName: string;
   yName: string;
 }
 
-const LIMIT_X = 1000;
-const LIMIT_Y = 1000;
+const LIMIT_X = 100000;
+const LIMIT_Y = 100000;
 const MIN_RANGE = 0.1;
 
 const clampDomain = (
@@ -58,13 +62,26 @@ const formatNumber = (value: number) => {
 
 const formatValue = (v: number) => {
   if (v === null) return "—";
+
   if (!isFinite(v)) return "∞";
-  if (Math.abs(v) >= 1000) return v.toExponential(2);
-  return Number(v.toFixed(3));
+
+  const abs = Math.abs(v);
+
+  if (abs >= 1000) {
+    return v.toExponential(2);
+  }
+
+  if (abs > 0 && abs < 0.001) {
+    return v.toExponential(3);
+  }
+
+  return Number(v.toFixed(6));
 };
 
 const CustomTooltip = ({ active, payload, label, xName, yName }: any) => {
-  if (!active || !payload || payload.length === 0) return null;
+  if (!active || !payload || payload.length === 0) {
+    return null;
+  }
 
   return (
     <div
@@ -81,9 +98,19 @@ const CustomTooltip = ({ active, payload, label, xName, yName }: any) => {
         {xName}: {formatValue(label)}
       </div>
 
-      <div style={{ color: "#3b82f6", fontWeight: 500 }}>
-        {yName}: {formatValue(payload[0].value)}
-      </div>
+      {payload.map((entry: any, index: number) => (
+        <div
+          key={index}
+          style={{
+            color: entry.color,
+            fontWeight: 500,
+          }}
+        >
+          {yName}
+          {payload.length > 1 ? ` ${index + 1}` : ""}:{" "}
+          {formatValue(entry.value)}
+        </div>
+      ))}
     </div>
   );
 };
@@ -201,7 +228,7 @@ function Graph({ data, xName, yName }: Props) {
           minWidth={200}
           minHeight={200}
         >
-          <LineChart data={data}>
+          <LineChart>
             <CartesianGrid stroke="#374151" strokeDasharray="3 3" />
 
             <XAxis
@@ -225,6 +252,7 @@ function Graph({ data, xName, yName }: Props) {
             <Tooltip content={<CustomTooltip xName={xName} yName={yName} />} />
 
             <Line
+              data={data.first}
               type="linear"
               dataKey="y"
               stroke="#3b82f6"
@@ -233,6 +261,19 @@ function Graph({ data, xName, yName }: Props) {
               isAnimationActive={false}
               connectNulls={false}
             />
+
+            {data.second.length > 0 && (
+              <Line
+                data={data.second}
+                type="linear"
+                dataKey="y"
+                stroke="#60a5fa"
+                strokeWidth={2}
+                dot={false}
+                isAnimationActive={false}
+                connectNulls={false}
+              />
+            )}
 
             <ReferenceLine x={0} stroke="#9ca3af" />
             <ReferenceLine y={0} stroke="#9ca3af" />
