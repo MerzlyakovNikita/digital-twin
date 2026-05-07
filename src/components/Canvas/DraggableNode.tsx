@@ -12,6 +12,7 @@ interface Props {
   updateNodeFunction?: (id: string, func: FunctionType) => void;
   updateNodeParam?: (id: string, param: string) => void;
   offset: { x: number; y: number };
+  scale: number;
 }
 
 export default function DraggableNode({
@@ -25,6 +26,7 @@ export default function DraggableNode({
   updateNodeFunction,
   updateNodeParam,
   offset,
+  scale,
 }: Props) {
   const [dragging, setDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -44,8 +46,8 @@ export default function DraggableNode({
         const canvas = document.querySelector(".canvas") as HTMLElement;
         if (!canvas) return;
 
-        let x = e.clientX - dragOffset.x - offset.x;
-        let y = e.clientY - dragOffset.y - offset.y;
+        let x = (e.clientX - offset.x - dragOffset.x) / scale;
+        let y = (e.clientY - offset.y - dragOffset.y) / scale;
 
         const LIMIT = 5000;
 
@@ -83,8 +85,8 @@ export default function DraggableNode({
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     setDragOffset({
-      x: e.clientX - node.x - offset.x,
-      y: e.clientY - node.y - offset.y,
+      x: e.clientX - node.x * scale - offset.x,
+      y: e.clientY - node.y * scale - offset.y,
     });
 
     if (frameRef.current) {
@@ -103,8 +105,8 @@ export default function DraggableNode({
       onMouseLeave={() => setHovered(false)}
       style={{
         position: "absolute",
-        left: node.x + offset.x,
-        top: node.y + offset.y,
+        left: node.x,
+        top: node.y,
       }}
     >
       {hovered && (

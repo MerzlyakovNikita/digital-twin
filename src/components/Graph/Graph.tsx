@@ -8,7 +8,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
-import { useState, useRef, useEffect } from "react";
+import { memo, useState, useRef, useEffect } from "react";
 
 type Point = {
   x: number;
@@ -33,18 +33,13 @@ const clampDomain = (
 
   if (range < MIN_RANGE) {
     const center = (min + max) / 2;
-    return [center - MIN_RANGE / 2, center + MIN_RANGE / 2];
+
+    min = center - MIN_RANGE / 2;
+    max = center + MIN_RANGE / 2;
   }
 
-  if (min < -limit) {
-    max += -limit - min;
-    min = -limit;
-  }
-
-  if (max > limit) {
-    min -= max - limit;
-    max = limit;
-  }
+  min = Math.max(min, -limit);
+  max = Math.min(max, limit);
 
   return [min, max];
 };
@@ -93,7 +88,7 @@ const CustomTooltip = ({ active, payload, label, xName, yName }: any) => {
   );
 };
 
-export default function Graph({ data, xName, yName }: Props) {
+function Graph({ data, xName, yName }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [xDomain, setXDomain] = useState<[number, number]>([-10, 10]);
@@ -181,8 +176,8 @@ export default function Graph({ data, xName, yName }: Props) {
   }, [xDomain, yDomain]);
 
   const handleDoubleClick = () => {
-    setXDomain([-1, 1]);
-    setYDomain([-1, 1]);
+    setXDomain([-10, 10]);
+    setYDomain([-10, 10]);
   };
 
   return (
@@ -212,14 +207,16 @@ export default function Graph({ data, xName, yName }: Props) {
             <XAxis
               dataKey="x"
               type="number"
-              domain={xDomain}
+              domain={[xDomain[0], xDomain[1]]}
+              allowDataOverflow={true}
               tickFormatter={formatNumber}
               tick={{ fill: "#9ca3af", fontSize: 12 }}
             />
 
             <YAxis
               type="number"
-              domain={yDomain}
+              domain={[yDomain[0], yDomain[1]]}
+              allowDataOverflow={true}
               tickFormatter={formatNumber}
               tick={{ fill: "#9ca3af", fontSize: 12 }}
               width={60}
@@ -228,7 +225,7 @@ export default function Graph({ data, xName, yName }: Props) {
             <Tooltip content={<CustomTooltip xName={xName} yName={yName} />} />
 
             <Line
-              type="monotone"
+              type="linear"
               dataKey="y"
               stroke="#3b82f6"
               strokeWidth={2}
@@ -256,3 +253,5 @@ export default function Graph({ data, xName, yName }: Props) {
     </div>
   );
 }
+
+export default memo(Graph);

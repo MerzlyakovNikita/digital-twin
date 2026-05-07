@@ -49,19 +49,6 @@ function buildExpr(nodeId: string, nodes: Node[], edges: Edge[]): string {
 
 const shorten = (s: string) => (s.length > 20 ? s.slice(0, 20) + "..." : s);
 
-function getPortPosition(id: string) {
-  const el = document.getElementById(id);
-  if (!el) return null;
-
-  const rect = el.getBoundingClientRect();
-  const canvasRect = document.querySelector(".canvas")!.getBoundingClientRect();
-
-  return {
-    x: rect.left - canvasRect.left + rect.width / 2,
-    y: rect.top - canvasRect.top + rect.height / 2,
-  };
-}
-
 interface Props {
   nodes: Node[];
   edges: Edge[];
@@ -99,21 +86,45 @@ export default function Canvas(props: Props) {
   } = props;
 
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [scale, setScale] = useState(1);
   const [isPanning, setIsPanning] = useState(false);
+
   const last = useRef({ x: 0, y: 0 });
+
+  const zoomPercent = Math.round(scale * 100);
+
+  const zoomIn = () => {
+    setScale((prev) => Math.min(prev + 0.1, 3));
+  };
+
+  const zoomOut = () => {
+    setScale((prev) => Math.max(prev - 0.1, 0.3));
+  };
+
+  const resetView = () => {
+    setOffset({ x: 0, y: 0 });
+    setScale(1);
+  };
 
   return (
     <div
       className="canvas"
       style={{
         position: "relative",
+        overflow: "hidden",
         cursor: isPanning ? "grabbing" : "default",
       }}
       onMouseDown={(e) => {
         if (e.button === 1) {
           e.preventDefault();
+
           setIsPanning(true);
-          last.current = { x: e.clientX, y: e.clientY };
+
+          last.current = {
+            x: e.clientX,
+            y: e.clientY,
+          };
+
           return;
         }
 
@@ -124,14 +135,20 @@ export default function Canvas(props: Props) {
       onMouseMove={(e) => {
         const rect = e.currentTarget.getBoundingClientRect();
 
-        updateMousePosition(e.clientX - rect.left, e.clientY - rect.top);
+        updateMousePosition(
+          (e.clientX - rect.left - offset.x) / scale,
+          (e.clientY - rect.top - offset.y) / scale,
+        );
 
         if (!isPanning) return;
 
         const dx = e.clientX - last.current.x;
         const dy = e.clientY - last.current.y;
 
-        last.current = { x: e.clientX, y: e.clientY };
+        last.current = {
+          x: e.clientX,
+          y: e.clientY,
+        };
 
         setOffset((prev) => ({
           x: prev.x + dx,
@@ -151,124 +168,188 @@ export default function Canvas(props: Props) {
           zIndex: 1000,
         }}
       >
-        <button onClick={() => setOffset({ x: 0, y: 0 })} style={btnStyle}>
+        <button onClick={zoomIn} style={btnStyle}>
+          +
+        </button>
+
+        <div
+          style={{
+            padding: "6px 0px",
+            minWidth: 50,
+            textAlign: "center",
+            fontSize: 13,
+            color: "#374151",
+            userSelect: "none",
+          }}
+        >
+          {zoomPercent}%
+        </div>
+
+        <button onClick={zoomOut} style={btnStyle}>
+          −
+        </button>
+
+        <button onClick={resetView} style={btnStyle}>
           Сбросить положение
         </button>
 
         <button
           onClick={props.clearCanvas}
-          style={{ ...btnStyle, background: "#ef4444" }}
+          style={{
+            ...btnStyle,
+            background: "#ef4444",
+          }}
         >
           Очистить
         </button>
       </div>
-      <svg
-        className="edges"
-        width="100%"
-        height="100%"
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-        }}
-      >
-        {edges.map((edge) => {
-          const from = nodes.find((n) => n.id === edge.from);
-          const to = nodes.find((n) => n.id === edge.to);
-
-          if (!from || !to) return null;
-
-          const p1 = getPortPosition(`port-out-${from.id}`);
-          const p2 = getPortPosition(
-            `port-in-${to.id}-${edge.inputIndex ?? 0}`,
-          );
-
-          if (!p1 || !p2) return null;
-
-          const x1 = p1.x;
-          const y1 = p1.y;
-          const x2 = p2.x;
-          const y2 = p2.y;
-
-          const midX = (x1 + x2) / 2;
-          const midY = (y1 + y2) / 2;
-
-          const label = shorten(buildExpr(edge.from, nodes, edges));
-
-          return (
-            <g key={edge.id}>
-              <line
-                x1={x1}
-                y1={y1}
-                x2={x2}
-                y2={y2}
-                stroke="black"
-                strokeWidth={2}
-              />
-
-              <line
-                x1={x1}
-                y1={y1}
-                x2={x2}
-                y2={y2}
-                stroke="transparent"
-                strokeWidth={10}
-                style={{ cursor: "pointer", pointerEvents: "stroke" }}
-                onClick={() => removeEdge(edge.id)}
-              />
-
-              <text
-                x={midX}
-                y={midY - 12}
-                fill="gray"
-                fontSize={12}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                style={{ pointerEvents: "none", userSelect: "none" }}
-              >
-                {label}
-                <title>{buildExpr(edge.from, nodes, edges)}</title>
-              </text>
-            </g>
-          );
-        })}
-
-        {connecting &&
-          mousePos &&
-          (() => {
-            const from = nodes.find((n) => n.id === connecting.fromNodeId);
-            if (!from) return null;
-
-            const p1 = getPortPosition(`port-out-${from.id}`);
-            if (!p1) return null;
-
-            return (
-              <line
-                x1={p1.x}
-                y1={p1.y}
-                x2={mousePos.x}
-                y2={mousePos.y}
-                stroke="gray"
-                strokeDasharray="5,5"
-                strokeWidth={2}
-              />
-            );
-          })()}
-      </svg>
 
       <div
+        className="viewport"
         style={{
-          transform: `translate(${offset.x}px, ${offset.y}px)`,
           position: "absolute",
           top: 0,
           left: 0,
+          width: "100%",
+          height: "100%",
+          transform: `
+            translate(${offset.x}px, ${offset.y}px)
+            scale(${scale})
+          `,
+          transformOrigin: "0 0",
         }}
       >
+        <svg
+          className="edges"
+          width="100%"
+          height="100%"
+          style={{
+            position: "absolute",
+            inset: 0,
+            overflow: "visible",
+          }}
+        >
+          {edges.map((edge) => {
+            const from = nodes.find((n) => n.id === edge.from);
+            const to = nodes.find((n) => n.id === edge.to);
+
+            if (!from || !to) return null;
+
+            const NODE_WIDTH = 127;
+            const NODE_HEIGHT = 72;
+
+            const p1 = {
+              x: from.x + NODE_WIDTH,
+              y: from.y + NODE_HEIGHT / 2,
+            };
+
+            let p2;
+
+            if (to.type === "operation") {
+              p2 = {
+                x: to.x,
+                y:
+                  edge.inputIndex === 0
+                    ? to.y + NODE_HEIGHT * 0.3
+                    : to.y + NODE_HEIGHT * 0.7,
+              };
+            } else {
+              p2 = {
+                x: to.x,
+                y: to.y + NODE_HEIGHT / 2,
+              };
+            }
+
+            if (!p1 || !p2) return null;
+
+            const x1 = p1.x;
+            const y1 = p1.y;
+
+            const x2 = p2.x;
+            const y2 = p2.y;
+
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2;
+
+            const label = shorten(buildExpr(edge.from, nodes, edges));
+
+            return (
+              <g key={edge.id}>
+                <line
+                  x1={x1}
+                  y1={y1}
+                  x2={x2}
+                  y2={y2}
+                  stroke="black"
+                  strokeWidth={2}
+                />
+
+                <line
+                  x1={x1}
+                  y1={y1}
+                  x2={x2}
+                  y2={y2}
+                  stroke="transparent"
+                  strokeWidth={10}
+                  style={{
+                    cursor: "pointer",
+                    pointerEvents: "stroke",
+                  }}
+                  onClick={() => removeEdge(edge.id)}
+                />
+
+                <text
+                  x={midX}
+                  y={midY - 12}
+                  fill="gray"
+                  fontSize={12}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  style={{
+                    pointerEvents: "none",
+                    userSelect: "none",
+                  }}
+                >
+                  {label}
+                  <title>{buildExpr(edge.from, nodes, edges)}</title>
+                </text>
+              </g>
+            );
+          })}
+
+          {connecting &&
+            mousePos &&
+            (() => {
+              const from = nodes.find((n) => n.id === connecting.fromNodeId);
+
+              if (!from) return null;
+
+              const NODE_WIDTH = 127;
+              const NODE_HEIGHT = 72;
+
+              const x1 = from.x + NODE_WIDTH;
+              const y1 = from.y + NODE_HEIGHT / 2;
+
+              return (
+                <line
+                  x1={x1}
+                  y1={y1}
+                  x2={mousePos.x}
+                  y2={mousePos.y}
+                  stroke="gray"
+                  strokeDasharray="5,5"
+                  strokeWidth={2}
+                />
+              );
+            })()}
+        </svg>
+
         {nodes.map((node) => (
           <DraggableNode
             key={node.id}
             node={node}
             offset={offset}
+            scale={scale}
             updatePosition={updatePosition}
             startConnection={startConnection}
             finishConnection={finishConnection}

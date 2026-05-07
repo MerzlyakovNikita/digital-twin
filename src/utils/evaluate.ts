@@ -31,31 +31,52 @@ export function evaluate(
 
       const param = Number(node.param ?? 2);
 
-      if (v <= 0 || param <= 0 || param === 1) return NaN;
-
       switch (node.func) {
         case "sin":
           return Math.sin(v);
+
         case "cos":
           return Math.cos(v);
+
         case "tan":
           return Math.tan(v);
+
         case "log":
+          if (v <= 0 || param <= 0 || param === 1) {
+            return NaN;
+          }
+
           return Math.log(v) / Math.log(param);
+
         case "ln":
+          if (v <= 0) {
+            return NaN;
+          }
+
           return Math.log(v);
+
         case "exp":
           return Math.exp(v);
+
         case "abs":
           return Math.abs(v);
+
         case "pow":
           return Math.pow(v, param);
+
         case "root":
+          if (param === 0) {
+            return NaN;
+          }
+
           return Math.pow(v, 1 / param);
+
         case "one":
           return v >= 0 ? 1 : 0;
+
         case "sign":
           return v > 0 ? 1 : v < 0 ? -1 : 0;
+
         default:
           return 0;
       }
@@ -78,7 +99,11 @@ export function evaluate(
       case "*":
         return a * b;
       case "/":
-        return b !== 0 ? a / b : 0;
+        if (Math.abs(b) < 1e-12) {
+          return NaN;
+        }
+
+        return a / b;
       default:
         return 0;
     }

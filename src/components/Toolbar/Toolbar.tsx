@@ -72,7 +72,7 @@ export default function Toolbar({
         Добавить
       </button>
 
-      <button onClick={loadTemplate}>📂 Шаблон</button>
+      <button onClick={loadTemplate}>Демо</button>
       <button onClick={saveGraph}>💾 Сохранить</button>
       <button onClick={loadSavedGraph}>📁 Загрузить</button>
     </div>
